@@ -1,108 +1,139 @@
 /*
-    SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2009 Sam Lantinga
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
-/* OS/2 thread management routines for SDL */
+#if SDL_THREAD_OS2
 
-#include <process.h>
-#define INCL_DOSERRORS
-#define INCL_DOSPROCESS
-#include <os2.h>
+/* Thread management routines for SDL */
 
 #include "SDL_thread.h"
 #include "../SDL_systhread.h"
 #include "../SDL_thread_c.h"
+#include "../SDL_systhread.h"
+#include "SDL_systls_c.h"
+#include "../../core/os2/SDL_os2.h"
+#ifndef SDL_PASSED_BEGINTHREAD_ENDTHREAD
+#error This source only adjusted for SDL_PASSED_BEGINTHREAD_ENDTHREAD
+#endif
 
-typedef struct ThreadStartParms
+#define INCL_DOSPROCESS
+#define INCL_DOSERRORS
+#include <os2.h>
+#include <process.h>
+
+
+static void RunThread(void *data)
 {
-  void *args;
-  pfnSDL_CurrentEndThread pfnCurrentEndThread;
-} tThreadStartParms, *pThreadStartParms;
+    SDL_Thread *thread = (SDL_Thread *) data;
+    pfnSDL_CurrentEndThread pfnEndThread = (pfnSDL_CurrentEndThread) thread->endfunc;
 
-static void threadfunc(void *pparm)
-{
-  pThreadStartParms pThreadParms = pparm;
-  pfnSDL_CurrentEndThread pfnCurrentEndThread = NULL;
+    if(ppSDLTLSData != NULL) {
+        *ppSDLTLSData = NULL;
+    }
 
-  // Call the thread function!
-  SDL_RunThread(pThreadParms->args);
+    SDL_RunThread(thread);
 
-  // Get the current endthread we have to use!
-  if (pThreadParms)
-  {
-    pfnCurrentEndThread = pThreadParms->pfnCurrentEndThread;
-    SDL_free(pThreadParms);
-  }
-  // Call endthread!
-  if (pfnCurrentEndThread)
-    (*pfnCurrentEndThread)();
+    if(pfnEndThread != NULL) {
+        pfnEndThread();
+    }
 }
 
-int SDL_SYS_CreateThread(SDL_Thread *thread, void *args, pfnSDL_CurrentBeginThread pfnBeginThread, pfnSDL_CurrentEndThread pfnEndThread)
+int
+SDL_SYS_CreateThread(SDL_Thread *thread,
+                     pfnSDL_CurrentBeginThread pfnBeginThread,
+                     pfnSDL_CurrentEndThread pfnEndThread)
 {
-  pThreadStartParms pThreadParms = SDL_malloc(sizeof(tThreadStartParms));
-  if (!pThreadParms)
-  {
-    SDL_SetError("Not enough memory to create thread");
-    return(-1);
-  }
+    if(thread->stacksize == 0) {
+        thread->stacksize = 65536;
+    }
 
-  // Save the function which we will have to call to clear the RTL of calling app!
-  pThreadParms->pfnCurrentEndThread = pfnEndThread;
-  // Also save the real parameters we have to pass to thread function
-  pThreadParms->args = args;
-  // Start the thread using the runtime library of calling app!
-  thread->threadid = thread->handle = (*pfnBeginThread)(threadfunc, NULL, 512*1024, pThreadParms);
-  if ((int)thread->threadid <= 0)
-  {
-    SDL_SetError("Not enough resources to create thread");
-    return(-1);
-  }
-  return(0);
+    if(pfnBeginThread) {
+        /* Save the function which we will have to call to clear the RTL of calling app! */
+        thread->endfunc = pfnEndThread;
+        /* Start the thread using the runtime library of calling app! */
+        thread->handle = (SYS_ThreadHandle)
+                         pfnBeginThread(RunThread, NULL, thread->stacksize, thread);
+    }
+    else {
+        thread->endfunc = _endthread;
+        thread->handle = (SYS_ThreadHandle)
+                         _beginthread(RunThread, NULL, thread->stacksize, thread);
+    }
+
+    if(thread->handle == -1) {
+        return SDL_SetError("Not enough resources to create thread");
+    }
+
+    return 0;
 }
 
-void SDL_SYS_SetupThread(void)
+void
+SDL_SYS_SetupThread(const char *name)
 {
-  return;
+    /* nothing. */
 }
 
-DECLSPEC Uint32 SDLCALL SDL_ThreadID(void)
+SDL_threadID
+SDL_ThreadID(void)
 {
-  PTIB tib;
-  DosGetInfoBlocks(&tib, NULL);
-  return((Uint32) (tib->tib_ptib2->tib2_ultid));
+    PTIB  tib;
+    PPIB  pib;
+
+    DosGetInfoBlocks(&tib, &pib);
+    return tib->tib_ptib2->tib2_ultid;
 }
 
-void SDL_SYS_WaitThread(SDL_Thread *thread)
+int
+SDL_SYS_SetThreadPriority(SDL_ThreadPriority priority)
 {
-  TID tid = thread->handle;
-  DosWaitThread(&tid, DCWW_WAIT);
+    ULONG ulRC;
+
+    ulRC = DosSetPriority(PRTYS_THREAD,
+                          (priority < SDL_THREAD_PRIORITY_NORMAL) ? PRTYC_IDLETIME :
+                          (priority > SDL_THREAD_PRIORITY_NORMAL) ? PRTYC_TIMECRITICAL :
+                          PRTYC_REGULAR,
+                          0, 0);
+    if(ulRC != NO_ERROR) {
+        return SDL_SetError("DosSetPriority() failed, rc = %u", ulRC);
+    }
+
+    return 0;
 }
 
-/* WARNING: This function is really a last resort.
- * Threads should be signaled and then exit by themselves.
- * TerminateThread() doesn't perform stack and DLL cleanup.
- */
-void SDL_SYS_KillThread(SDL_Thread *thread)
+void
+SDL_SYS_WaitThread(SDL_Thread *thread)
 {
-  DosKillThread(thread->handle);
+    ULONG ulRC = DosWaitThread((PTID)&thread->handle, DCWW_WAIT);
+
+    if(ulRC != NO_ERROR) {
+        debug_os2("DosWaitThread() failed, rc = %u", ulRC);
+    }
 }
+
+void
+SDL_SYS_DetachThread(SDL_Thread *thread)
+{
+    /* nothing. */
+}
+
+#endif /* SDL_THREAD_OS2 */
+
+/* vi: set ts=4 sw=4 expandtab: */

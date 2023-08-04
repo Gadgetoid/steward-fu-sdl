@@ -1,108 +1,134 @@
 /*
-    SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2009 Sam Lantinga
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
-/* Mutex functions using the OS/2 API */
+#if SDL_THREAD_OS2
 
-#define INCL_DOSERRORS
+/* An implementation of mutexes for OS/2 */
+
+#include "SDL_thread.h"
+#include "SDL_systhread_c.h"
+#include "../../core/os2/SDL_os2.h"
+
 #define INCL_DOSSEMAPHORES
+#define INCL_DOSERRORS
 #include <os2.h>
 
-#include "SDL_mutex.h"
-
-
 struct SDL_mutex {
-	HMTX hmtxID;
+    HMTX  _handle;
 };
 
 /* Create a mutex */
-DECLSPEC SDL_mutex * SDLCALL SDL_CreateMutex(void)
+SDL_mutex *
+SDL_CreateMutex(void)
 {
-  SDL_mutex *mutex;
-  APIRET ulrc;
+    ULONG ulRC;
+    HMTX  hMtx;
 
-  /* Allocate mutex memory */
-  mutex = (SDL_mutex *)SDL_malloc(sizeof(*mutex));
-  if (mutex)
-  {
-    /* Create the mutex, with initial value signaled */
-    ulrc = DosCreateMutexSem(NULL,                  // Create unnamed semaphore
-                             &(mutex->hmtxID),      // Pointer to handle
-                             0L,                    // Flags: create it private (not shared)
-                             FALSE);                // Initial value: unowned
-    if (ulrc!=NO_ERROR)
-    {
-      SDL_SetError("Couldn't create mutex");
-      SDL_free(mutex);
-      mutex = NULL;
+    ulRC = DosCreateMutexSem(NULL, &hMtx, 0, FALSE);
+    if(ulRC != NO_ERROR) {
+        debug_os2("DosCreateMutexSem(), rc = %u", ulRC);
+        return NULL;
     }
-  } else {
-    SDL_OutOfMemory();
-  }
-  return(mutex);
+
+    return (SDL_mutex *)hMtx;
 }
 
 /* Free the mutex */
-DECLSPEC void SDLCALL SDL_DestroyMutex(SDL_mutex *mutex)
+void
+SDL_DestroyMutex(SDL_mutex *mutex)
 {
-  if ( mutex )
-  {
-    if ( mutex->hmtxID )
-    {
-      DosCloseMutexSem(mutex->hmtxID);
-      mutex->hmtxID = 0;
+    ULONG ulRC;
+    HMTX  hMtx = (HMTX)mutex;
+
+    ulRC = DosCloseMutexSem(hMtx);
+    if(ulRC != NO_ERROR) {
+        debug_os2("DosCloseMutexSem(), rc = %u", ulRC);
     }
-    SDL_free(mutex);
-  }
 }
 
 /* Lock the mutex */
-DECLSPEC int SDLCALL SDL_mutexP(SDL_mutex *mutex)
+int
+SDL_LockMutex(SDL_mutex *mutex)
 {
-  if ( mutex == NULL )
-  {
-    SDL_SetError("Passed a NULL mutex");
-    return -1;
-  }
-  if ( DosRequestMutexSem(mutex->hmtxID, SEM_INDEFINITE_WAIT) != NO_ERROR )
-  {
-    SDL_SetError("Couldn't wait on mutex");
-    return -1;
-  }
-  return(0);
+    ULONG ulRC;
+    HMTX  hMtx = (HMTX)mutex;
+
+    if(hMtx == NULLHANDLE) {
+        return SDL_SetError("Passed a NULL mutex");
+    }
+
+    ulRC = DosRequestMutexSem(hMtx, SEM_INDEFINITE_WAIT);
+    if(ulRC != NO_ERROR) {
+        debug_os2("DosRequestMutexSem(), rc = %u", ulRC);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* try Lock the mutex */
+int
+SDL_TryLockMutex(SDL_mutex *mutex)
+{
+    ULONG ulRC;
+    HMTX  hMtx = (HMTX)mutex;
+
+    if(hMtx == NULLHANDLE) {
+        return SDL_SetError("Passed a NULL mutex");
+    }
+
+    ulRC = DosRequestMutexSem(hMtx, SEM_IMMEDIATE_RETURN);
+
+    if(ulRC == ERROR_TIMEOUT) {
+        return SDL_MUTEX_TIMEDOUT;
+    }
+
+    if(ulRC != NO_ERROR) {
+        debug_os2("DosRequestMutexSem(), rc = %u", ulRC);
+        return -1;
+    }
+
+    return 0;
 }
 
 /* Unlock the mutex */
-DECLSPEC int SDLCALL SDL_mutexV(SDL_mutex *mutex)
+int
+SDL_UnlockMutex(SDL_mutex *mutex)
 {
-  if ( mutex == NULL )
-  {
-    SDL_SetError("Passed a NULL mutex");
-    return -1;
-  }
-  if ( DosReleaseMutexSem(mutex->hmtxID) != NO_ERROR )
-  {
-    SDL_SetError("Couldn't release mutex");
-    return -1;
-  }
-  return(0);
+    ULONG ulRC;
+    HMTX  hMtx = (HMTX)mutex;
+
+    if(hMtx == NULLHANDLE) {
+        return SDL_SetError("Passed a NULL mutex");
+    }
+
+    ulRC = DosReleaseMutexSem(hMtx);
+    if(ulRC != NO_ERROR) {
+        return SDL_SetError("DosReleaseMutexSem(), rc = %u", ulRC);
+    }
+
+    return 0;
 }
+
+#endif /* SDL_THREAD_OS2 */
+
+/* vi: set ts=4 sw=4 expandtab: */

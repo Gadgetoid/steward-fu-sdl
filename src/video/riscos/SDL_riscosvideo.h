@@ -1,62 +1,37 @@
 /*
-    SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2009 Sam Lantinga
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
-#ifndef _SDL_riscosvideo_h
-#define _SDL_riscosvideo_h
+#ifndef SDL_riscosvideo_h_
+#define SDL_riscosvideo_h_
 
-#include "SDL_mouse.h"
-#include "SDL_mutex.h"
 #include "../SDL_sysvideo.h"
 
-/* Hidden "this" pointer for the video functions */
-#define _THIS	SDL_VideoDevice *this
+#define RISCOS_MAX_KEYS_PRESSED 6
 
+typedef struct SDL_VideoData {
+    int last_mouse_buttons;
+    Uint8 key_pressed[RISCOS_MAX_KEYS_PRESSED];
+} SDL_VideoData;
 
-/* Private display data */
+#endif /* SDL_riscosvideo_h_ */
 
-struct SDL_PrivateVideoData {
-    unsigned char *bank[2];
-    int current_bank;
-	unsigned char *alloc_bank;
-    int height;
-    int xeig;
-    int yeig;
-	int screen_bpp;
-	int screen_width;
-	int screen_height;
-	char *pixtrans;
-
-	/* Wimp variables */
-	unsigned int window_handle;
-	char title[256];
-
-#define NUM_MODELISTS	4		/* 8, 16, 24, and 32 bits-per-pixel */
-    int SDL_nummodes[NUM_MODELISTS];
-    SDL_Rect **SDL_modelist[NUM_MODELISTS];
-};
-
-/* Old variable names */
-#define SDL_nummodes		(this->hidden->SDL_nummodes)
-#define SDL_modelist		(this->hidden->SDL_modelist)
-
-#endif /* _SDL_risosvideo_h */
+/* vi: set ts=4 sw=4 expandtab: */

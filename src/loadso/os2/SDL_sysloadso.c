@@ -1,71 +1,84 @@
 /*
-    SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2009 Sam Lantinga
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+#include "../../SDL_internal.h"
 
 #ifdef SDL_LOADSO_OS2
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* System dependent library loading routines                           */
 
-#include <stdio.h>
-#define INCL_DOSERRORS
+#include "SDL_loadso.h"
+#include "../../core/os2/SDL_os2.h"
+
 #define INCL_DOSMODULEMGR
+#define INCL_DOSERRORS
 #include <os2.h>
 
-#include "SDL_loadso.h"
-
-void *SDL_LoadObject(const char *sofile)
+void *
+SDL_LoadObject(const char *sofile)
 {
-    HMODULE handle = NULL;
-    char buf[512];
-    APIRET ulrc = DosLoadModule(buf, sizeof (buf), (char *) sofile, &handle);
+    ULONG   ulRC;
+    HMODULE hModule;
+    CHAR    acError[256];
+    PSZ     pszModName;
 
-    /* Generate an error message if all loads failed */
-    if ((ulrc != NO_ERROR) || (handle == NULL))
-        SDL_SetError("Failed loading %s: %s", sofile, buf);
+    if(!sofile) {
+        SDL_SetError("NULL sofile");
+        return NULL;
+    }
 
-    return((void *) handle);
+    pszModName = OS2_UTF8ToSys(sofile);
+    ulRC = DosLoadModule(acError, sizeof(acError), pszModName, &hModule);
+    SDL_free(pszModName);
+    if(ulRC != NO_ERROR) {
+        SDL_SetError("Failed loading %s (E%u)", acError, ulRC);
+        return NULL;
+    }
+
+    return (void *)hModule;
 }
 
-void *SDL_LoadFunction(void *handle, const char *name)
+void *
+SDL_LoadFunction(void *handle, const char *name)
 {
-    const char *loaderror = "Unknown error";
-    void *symbol = NULL;
-    APIRET ulrc = DosQueryProcAddr((HMODULE)handle, 0, (char *)name, &symbol);
-    if (ulrc == ERROR_INVALID_HANDLE)
-        loaderror = "Invalid module handle";
-    else if (ulrc == ERROR_INVALID_NAME)
-        loaderror = "Symbol not found";
+    ULONG   ulRC;
+    PFN     pFN;
 
-    if (symbol == NULL)
-        SDL_SetError("Failed loading %s: %s", name, loaderror);
+    ulRC = DosQueryProcAddr((HMODULE)handle, 0, name, &pFN);
+    if(ulRC != NO_ERROR) {
+        SDL_SetError("Failed loading procedure %s (E%u)", name, ulRC);
+        return NULL;
+    }
 
-    return(symbol);
+    return (void *)pFN;
 }
 
-void SDL_UnloadObject(void *handle)
+void
+SDL_UnloadObject(void *handle)
 {
-    if ( handle != NULL )
-        DosFreeModule((HMODULE) handle);
+    if(handle != NULL) {
+        DosFreeModule((HMODULE)handle);
+    }
 }
 
 #endif /* SDL_LOADSO_OS2 */
+
+/* vi: set ts=4 sw=4 expandtab: */

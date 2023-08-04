@@ -1,34 +1,80 @@
 /*
-    SDL - Simple DirectMedia Layer
-    Copyright (C) 1997-2009 Sam Lantinga
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    Sam Lantinga
-    slouken@libsdl.org
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
 */
-#include "SDL_config.h"
+
+#ifndef SDL_audio_c_h_
+#define SDL_audio_c_h_
+
+#include "../SDL_internal.h"
+
+#ifndef DEBUG_CONVERT
+#define DEBUG_CONVERT 0
+#endif
+
+#if DEBUG_CONVERT
+#define LOG_DEBUG_CONVERT(from, to) fprintf(stderr, "Converting %s to %s.\n", from, to);
+#else
+#define LOG_DEBUG_CONVERT(from, to)
+#endif
 
 /* Functions and variables exported from SDL_audio.c for SDL_sysaudio.c */
 
+#ifdef HAVE_LIBSAMPLERATE_H
+#include "samplerate.h"
+extern SDL_bool SRC_available;
+extern int SRC_converter;
+extern SRC_STATE *(*SRC_src_new)(int converter_type, int channels, int *error);
+extern int (*SRC_src_process)(SRC_STATE *state, SRC_DATA *data);
+extern int (*SRC_src_reset)(SRC_STATE *state);
+extern SRC_STATE *(*SRC_src_delete)(SRC_STATE *state);
+extern const char *(*SRC_src_strerror)(int error);
+#endif
+
 /* Functions to get a list of "close" audio formats */
-extern Uint16 SDL_FirstAudioFormat(Uint16 format);
-extern Uint16 SDL_NextAudioFormat(void);
+extern SDL_AudioFormat SDL_FirstAudioFormat(SDL_AudioFormat format);
+extern SDL_AudioFormat SDL_NextAudioFormat(void);
 
 /* Function to calculate the size and silence for a SDL_AudioSpec */
+extern Uint8 SDL_SilenceValueForFormat(const SDL_AudioFormat format);
 extern void SDL_CalculateAudioSpec(SDL_AudioSpec *spec);
 
-/* The actual mixing thread function */
-extern int SDLCALL SDL_RunAudio(void *audiop);
+/* Choose the audio filter functions below */
+extern void SDL_ChooseAudioConverters(void);
+
+/* These pointers get set during SDL_ChooseAudioConverters() to various SIMD implementations. */
+extern SDL_AudioFilter SDL_Convert_S8_to_F32;
+extern SDL_AudioFilter SDL_Convert_U8_to_F32;
+extern SDL_AudioFilter SDL_Convert_S16_to_F32;
+extern SDL_AudioFilter SDL_Convert_U16_to_F32;
+extern SDL_AudioFilter SDL_Convert_S32_to_F32;
+extern SDL_AudioFilter SDL_Convert_F32_to_S8;
+extern SDL_AudioFilter SDL_Convert_F32_to_U8;
+extern SDL_AudioFilter SDL_Convert_F32_to_S16;
+extern SDL_AudioFilter SDL_Convert_F32_to_U16;
+extern SDL_AudioFilter SDL_Convert_F32_to_S32;
+
+/* You need to call SDL_PrepareResampleFilter() before using the internal resampler.
+   SDL_AudioQuit() calls SDL_FreeResamplerFilter(), you should never call it yourself. */
+extern int SDL_PrepareResampleFilter(void);
+extern void SDL_FreeResampleFilter(void);
+
+#endif /* SDL_audio_c_h_ */
+
+/* vi: set ts=4 sw=4 expandtab: */

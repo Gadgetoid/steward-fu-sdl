@@ -1,9 +1,9 @@
 # Makefile to build and install the SDL library
 
 top_builddir = .
-srcdir  = .
+srcdir  = /home/steward/Data/mmiyoo/sdl2
 objects = build
-depend	= build-deps
+gen = gen
 prefix = /usr/local
 exec_prefix = ${prefix}
 bindir	= ${exec_prefix}/bin
@@ -11,135 +11,222 @@ libdir  = ${exec_prefix}/lib
 includedir = ${prefix}/include
 datarootdir = ${prefix}/share
 datadir	= ${datarootdir}
-mandir	= ${datarootdir}/man
 auxdir	= build-scripts
 distpath = $(srcdir)/..
-distdir = SDL-1.2.14
+distdir = SDL2-2.0.20
 distfile = $(distdir).tar.gz
 
 
 SHELL	= /bin/sh
-CC      = mipsel-linux-gcc
-INCLUDE = -I./include
-CFLAGS  = -g -O2 
-EXTRA_CFLAGS = -I./include -D_GNU_SOURCE=1 -fvisibility=hidden -D_REENTRANT -DHAVE_LINUX_VERSION_H
-LDFLAGS = 
-EXTRA_LDFLAGS =  -liconv -lm -lpthread
+CC      = gcc
+INCLUDE = -Iinclude -I/home/steward/Data/mmiyoo/sdl2/include -idirafter /home/steward/Data/mmiyoo/sdl2/src/video/khronos
+CFLAGS  = -g -O3 -DUSING_GENERATED_CONFIG_H
+EXTRA_CFLAGS = -Iinclude -I/home/steward/Data/mmiyoo/sdl2/include -idirafter /home/steward/Data/mmiyoo/sdl2/src/video/khronos  -mmmx -m3dnow -msse -msse2 -msse3 -Wall -fno-strict-aliasing -fPIC -fvisibility=hidden -Wdeclaration-after-statement -Werror=declaration-after-statement -DMESA_EGL_NO_X11_HEADERS -DEGL_NO_X11 -D_REENTRANT -DHAVE_LINUX_VERSION_H
+LDFLAGS =  -Wl,--no-undefined
+EXTRA_LDFLAGS =  -lm -L. -lEGL -lGLESv2 -lrt -ldl -lpthread -lrt
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 INSTALL = /usr/bin/install -c
-NASM	=  
-AR	= mipsel-linux-ar
-RANLIB	= mipsel-linux-ranlib
-WINDRES	= 
+AR	= ar
+RANLIB	= ranlib
+RC	= 
+LINKER = $(CC)
+LIBTOOLLINKERTAG = CC
 
-TARGET  = libSDL.la
-SOURCES =  ./src/*.c ./src/audio/*.c ./src/cdrom/*.c ./src/cpuinfo/*.c ./src/events/*.c ./src/file/*.c ./src/stdlib/*.c ./src/thread/*.c ./src/timer/*.c ./src/video/*.c ./src/joystick/*.c ./src/video/dummy/*.c ./src/audio/disk/*.c ./src/audio/dummy/*.c ./src/loadso/dlopen/*.c ./src/audio/dsp/*.c ./src/audio/dma/*.c ./src/video/fbcon/*.c ./src/thread/pthread/SDL_systhread.c ./src/thread/pthread/SDL_syssem.c ./src/thread/pthread/SDL_sysmutex.c ./src/thread/pthread/SDL_syscond.c ./src/joystick/linux/*.c ./src/cdrom/linux/*.c ./src/timer/unix/*.c
-OBJECTS = $(objects)/SDL.lo $(objects)/SDL_error.lo $(objects)/SDL_fatal.lo $(objects)/SDL_audio.lo $(objects)/SDL_audiocvt.lo $(objects)/SDL_audiodev.lo $(objects)/SDL_mixer.lo $(objects)/SDL_mixer_MMX.lo $(objects)/SDL_mixer_MMX_VC.lo $(objects)/SDL_mixer_m68k.lo $(objects)/SDL_wave.lo $(objects)/SDL_cdrom.lo $(objects)/SDL_cpuinfo.lo $(objects)/SDL_active.lo $(objects)/SDL_events.lo $(objects)/SDL_expose.lo $(objects)/SDL_keyboard.lo $(objects)/SDL_mouse.lo $(objects)/SDL_quit.lo $(objects)/SDL_resize.lo $(objects)/SDL_rwops.lo $(objects)/SDL_getenv.lo $(objects)/SDL_iconv.lo $(objects)/SDL_malloc.lo $(objects)/SDL_qsort.lo $(objects)/SDL_stdlib.lo $(objects)/SDL_string.lo $(objects)/SDL_thread.lo $(objects)/SDL_timer.lo $(objects)/SDL_RLEaccel.lo $(objects)/SDL_blit.lo $(objects)/SDL_blit_0.lo $(objects)/SDL_blit_1.lo $(objects)/SDL_blit_A.lo $(objects)/SDL_blit_N.lo $(objects)/SDL_bmp.lo $(objects)/SDL_cursor.lo $(objects)/SDL_gamma.lo $(objects)/SDL_pixels.lo $(objects)/SDL_stretch.lo $(objects)/SDL_surface.lo $(objects)/SDL_video.lo $(objects)/SDL_yuv.lo $(objects)/SDL_yuv_mmx.lo $(objects)/SDL_yuv_sw.lo $(objects)/SDL_joystick.lo $(objects)/SDL_nullevents.lo $(objects)/SDL_nullmouse.lo $(objects)/SDL_nullvideo.lo $(objects)/SDL_diskaudio.lo $(objects)/SDL_dummyaudio.lo $(objects)/SDL_sysloadso.lo $(objects)/SDL_dspaudio.lo $(objects)/SDL_dmaaudio.lo $(objects)/SDL_fb3dfx.lo $(objects)/SDL_fbelo.lo $(objects)/SDL_fbevents.lo $(objects)/SDL_fbmatrox.lo $(objects)/SDL_fbmouse.lo $(objects)/SDL_fbriva.lo $(objects)/SDL_fbvideo.lo $(objects)/SDL_systhread.lo $(objects)/SDL_syssem.lo $(objects)/SDL_sysmutex.lo $(objects)/SDL_syscond.lo $(objects)/SDL_sysjoystick.lo $(objects)/SDL_syscdrom.lo $(objects)/SDL_systimer.lo
+TARGET  = libSDL2.la
+OBJECTS = $(objects)/SDL.lo $(objects)/SDL_assert.lo $(objects)/SDL_dataqueue.lo $(objects)/SDL_error.lo $(objects)/SDL_hints.lo $(objects)/SDL_log.lo $(objects)/SDL_atomic.lo $(objects)/SDL_spinlock.lo $(objects)/SDL_audio.lo $(objects)/SDL_audiocvt.lo $(objects)/SDL_audiodev.lo $(objects)/SDL_audiotypecvt.lo $(objects)/SDL_mixer.lo $(objects)/SDL_wave.lo $(objects)/SDL_cpuinfo.lo $(objects)/SDL_dynapi.lo $(objects)/SDL_clipboardevents.lo $(objects)/SDL_displayevents.lo $(objects)/SDL_dropevents.lo $(objects)/SDL_events.lo $(objects)/SDL_gesture.lo $(objects)/SDL_keyboard.lo $(objects)/SDL_mouse.lo $(objects)/SDL_quit.lo $(objects)/SDL_touch.lo $(objects)/SDL_windowevents.lo $(objects)/imKStoUCS.lo $(objects)/SDL_rwops.lo $(objects)/SDL_haptic.lo $(objects)/SDL_hidapi.lo $(objects)/SDL_gamecontroller.lo $(objects)/SDL_joystick.lo $(objects)/e_atan2.lo $(objects)/e_exp.lo $(objects)/e_fmod.lo $(objects)/e_log.lo $(objects)/e_log10.lo $(objects)/e_pow.lo $(objects)/e_rem_pio2.lo $(objects)/e_sqrt.lo $(objects)/k_cos.lo $(objects)/k_rem_pio2.lo $(objects)/k_sin.lo $(objects)/k_tan.lo $(objects)/s_atan.lo $(objects)/s_copysign.lo $(objects)/s_cos.lo $(objects)/s_fabs.lo $(objects)/s_floor.lo $(objects)/s_scalbn.lo $(objects)/s_sin.lo $(objects)/s_tan.lo $(objects)/SDL_url.lo $(objects)/SDL_power.lo $(objects)/SDL_d3dmath.lo $(objects)/SDL_render.lo $(objects)/SDL_yuv_sw.lo $(objects)/SDL_render_d3d.lo $(objects)/SDL_shaders_d3d.lo $(objects)/SDL_render_d3d11.lo $(objects)/SDL_shaders_d3d11.lo $(objects)/SDL_render_mmiyoo.lo $(objects)/SDL_render_gl.lo $(objects)/SDL_shaders_gl.lo $(objects)/SDL_render_gles.lo $(objects)/SDL_render_gles2.lo $(objects)/SDL_shaders_gles2.lo $(objects)/SDL_render_psp.lo $(objects)/SDL_blendfillrect.lo $(objects)/SDL_blendline.lo $(objects)/SDL_blendpoint.lo $(objects)/SDL_drawline.lo $(objects)/SDL_drawpoint.lo $(objects)/SDL_render_sw.lo $(objects)/SDL_rotate.lo $(objects)/SDL_triangle.lo $(objects)/SDL_render_vita_gxm.lo $(objects)/SDL_render_vita_gxm_memory.lo $(objects)/SDL_render_vita_gxm_tools.lo $(objects)/SDL_sensor.lo $(objects)/SDL_crc32.lo $(objects)/SDL_getenv.lo $(objects)/SDL_iconv.lo $(objects)/SDL_malloc.lo $(objects)/SDL_qsort.lo $(objects)/SDL_stdlib.lo $(objects)/SDL_string.lo $(objects)/SDL_strtokr.lo $(objects)/SDL_thread.lo $(objects)/SDL_timer.lo $(objects)/SDL_RLEaccel.lo $(objects)/SDL_blit.lo $(objects)/SDL_blit_0.lo $(objects)/SDL_blit_1.lo $(objects)/SDL_blit_A.lo $(objects)/SDL_blit_N.lo $(objects)/SDL_blit_auto.lo $(objects)/SDL_blit_copy.lo $(objects)/SDL_blit_slow.lo $(objects)/SDL_bmp.lo $(objects)/SDL_clipboard.lo $(objects)/SDL_egl.lo $(objects)/SDL_fillrect.lo $(objects)/SDL_pixels.lo $(objects)/SDL_rect.lo $(objects)/SDL_shape.lo $(objects)/SDL_stretch.lo $(objects)/SDL_surface.lo $(objects)/SDL_video.lo $(objects)/SDL_vulkan_utils.lo $(objects)/SDL_yuv.lo $(objects)/yuv_rgb.lo $(objects)/SDL_locale.lo $(objects)/SDL_event_mmiyoo.lo $(objects)/SDL_framebuffer_mmiyoo.lo $(objects)/SDL_opengles_mmiyoo.lo $(objects)/SDL_video_mmiyoo.lo $(objects)/SDL_sysloadso.lo $(objects)/SDL_systhread.lo $(objects)/SDL_syssem.lo $(objects)/SDL_sysmutex.lo $(objects)/SDL_syscond.lo $(objects)/SDL_systls.lo $(objects)/SDL_sysurl.lo $(objects)/SDL_syslocale.lo $(objects)/SDL_audio_mmiyoo.lo $(objects)/SDL_joystick_mmiyoo.lo $(objects)/SDL_sysfilesystem.lo $(objects)/SDL_systimer.lo $(objects)/SDL_evdev.lo $(objects)/SDL_evdev_kbd.lo $(objects)/SDL_evdev_kbd_freebsd.lo $(objects)/SDL_evdev_capabilities.lo $(objects)/SDL_threadprio.lo $(objects)/SDL_poll.lo $(objects)/SDL_syshaptic.lo $(objects)/SDL_dummysensor.lo
+GEN_HEADERS = 
+GEN_OBJECTS = 
+VERSION_OBJECTS = 
 
-SDLMAIN_TARGET = libSDLmain.a
-SDLMAIN_SOURCES = ./src/main/dummy/*.c
-SDLMAIN_OBJECTS = $(objects)/SDL_dummy_main.o
+SDLMAIN_TARGET = libSDL2main.la
+SDLMAIN_OBJECTS = $(objects)/SDL_dummy_main.lo
 
-DIST = acinclude autogen.sh Borland.html Borland.zip BUGS build-scripts configure configure.in COPYING CREDITS CWprojects.sea.bin docs docs.html include INSTALL Makefile.dc Makefile.minimal Makefile.in MPWmake.sea.bin README* sdl-config.in sdl.m4 sdl.pc.in SDL.qpg.in SDL.spec SDL.spec.in src test TODO VisualCE.zip VisualC.html VisualC.zip Watcom-OS2.zip Watcom-Win32.zip symbian.zip WhatsNew Xcode.tar.gz
+SDLTEST_TARGET = libSDL2_test.la
+SDLTEST_OBJECTS = $(objects)/SDL_test_assert.lo $(objects)/SDL_test_common.lo $(objects)/SDL_test_compare.lo $(objects)/SDL_test_crc32.lo $(objects)/SDL_test_font.lo $(objects)/SDL_test_fuzzer.lo $(objects)/SDL_test_harness.lo $(objects)/SDL_test_imageBlit.lo $(objects)/SDL_test_imageBlitBlend.lo $(objects)/SDL_test_imageFace.lo $(objects)/SDL_test_imagePrimitives.lo $(objects)/SDL_test_imagePrimitivesBlend.lo $(objects)/SDL_test_log.lo $(objects)/SDL_test_md5.lo $(objects)/SDL_test_memory.lo $(objects)/SDL_test_random.lo
 
-HDRS = SDL.h SDL_active.h SDL_audio.h SDL_byteorder.h SDL_cdrom.h SDL_cpuinfo.h SDL_endian.h SDL_error.h SDL_events.h SDL_getenv.h SDL_joystick.h SDL_keyboard.h SDL_keysym.h SDL_loadso.h SDL_main.h SDL_mouse.h SDL_mutex.h SDL_name.h SDL_opengl.h SDL_platform.h SDL_quit.h SDL_rwops.h SDL_stdinc.h SDL_syswm.h SDL_thread.h SDL_timer.h SDL_types.h SDL_version.h SDL_video.h begin_code.h close_code.h
+WAYLAND_SCANNER = 
+WAYLAND_SCANNER_CODE_MODE = 
 
-LT_AGE      = 11
-LT_CURRENT  = 11
-LT_RELEASE  = 1.2
-LT_REVISION = 3
-LT_LDFLAGS  = -no-undefined -rpath $(DESTDIR)$(libdir) -release $(LT_RELEASE) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
+INSTALL_SDL2_CONFIG = TRUE
 
-all: $(srcdir)/configure Makefile $(objects) $(objects)/$(TARGET) $(objects)/$(SDLMAIN_TARGET)
+SRC_DIST = *.md *.txt acinclude Android.mk autogen.sh android-project build-scripts cmake cmake_uninstall.cmake.in configure configure.ac debian docs include Makefile.* sdl2-config.cmake.in sdl2-config-version.cmake.in sdl2-config.in sdl2.m4 sdl2.pc.in SDL2.spec.in SDL2Config.cmake src test VisualC VisualC-WinRT Xcode Xcode-iOS wayland-protocols
+GEN_DIST = SDL2.spec
 
-$(srcdir)/configure: $(srcdir)/configure.in
-	@echo "Warning, configure.in is out of date"
-	#(cd $(srcdir) && sh autogen.sh && sh configure)
-	@sleep 3
+ifneq ($V,1)
+RUN_CMD_AR     = @echo "  AR    " $@;
+RUN_CMD_CC     = @echo "  CC    " $@;
+RUN_CMD_CXX    = @echo "  CXX   " $@;
+RUN_CMD_LTLINK = @echo "  LTLINK" $@;
+RUN_CMD_RANLIB = @echo "  RANLIB" $@;
+RUN_CMD_RC     = @echo "  RC    " $@;
+RUN_CMD_GEN    = @echo "  GEN   " $@;
+LIBTOOL += --quiet
+endif
+
+HDRS = \
+	SDL.h \
+	SDL_assert.h \
+	SDL_atomic.h \
+	SDL_audio.h \
+	SDL_bits.h \
+	SDL_blendmode.h \
+	SDL_clipboard.h \
+	SDL_cpuinfo.h \
+	SDL_egl.h \
+	SDL_endian.h \
+	SDL_error.h \
+	SDL_events.h \
+	SDL_filesystem.h \
+	SDL_gamecontroller.h \
+	SDL_gesture.h \
+	SDL_haptic.h \
+	SDL_hidapi.h \
+	SDL_hints.h \
+	SDL_joystick.h \
+	SDL_keyboard.h \
+	SDL_keycode.h \
+	SDL_loadso.h \
+	SDL_locale.h \
+	SDL_log.h \
+	SDL_main.h \
+	SDL_messagebox.h \
+	SDL_metal.h \
+	SDL_misc.h \
+	SDL_mouse.h \
+	SDL_mutex.h \
+	SDL_name.h \
+	SDL_opengl.h \
+	SDL_opengl_glext.h \
+	SDL_opengles.h \
+	SDL_opengles2_gl2ext.h \
+	SDL_opengles2_gl2.h \
+	SDL_opengles2_gl2platform.h \
+	SDL_opengles2.h \
+	SDL_opengles2_khrplatform.h \
+	SDL_pixels.h \
+	SDL_platform.h \
+	SDL_power.h \
+	SDL_quit.h \
+	SDL_rect.h \
+	SDL_render.h \
+	SDL_rwops.h \
+	SDL_scancode.h \
+	SDL_sensor.h \
+	SDL_shape.h \
+	SDL_stdinc.h \
+	SDL_surface.h \
+	SDL_system.h \
+	SDL_syswm.h \
+	SDL_thread.h \
+	SDL_timer.h \
+	SDL_touch.h \
+	SDL_types.h \
+	SDL_version.h \
+	SDL_video.h \
+	SDL_vulkan.h \
+	begin_code.h \
+	close_code.h
+
+SDLTEST_HDRS = $(shell ls $(srcdir)/include | fgrep SDL_test)
+
+LT_AGE      = 18
+LT_CURRENT  = 18
+LT_RELEASE  = 2.0
+LT_REVISION = 2
+LT_LDFLAGS  = -no-undefined -rpath $(libdir) -release $(LT_RELEASE) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
+
+all: $(srcdir)/configure Makefile $(objects)/$(TARGET) $(objects)/$(SDLMAIN_TARGET) $(objects)/$(SDLTEST_TARGET)
+
+$(srcdir)/configure: $(srcdir)/configure.ac
+	@echo "Warning, configure is out of date, please re-run autogen.sh"
 
 Makefile: $(srcdir)/Makefile.in
 	$(SHELL) config.status $@
 
-$(objects):
-	$(SHELL) $(auxdir)/mkinstalldirs $@
+Makefile.in:;
 
-.PHONY: all depend install install-bin install-hdrs install-lib install-data install-man uninstall uninstall-bin uninstall-hdrs uninstall-lib uninstall-data uninstall-man clean distclean dist
-depend:
-	@SOURCES="$(SOURCES)" INCLUDE="$(INCLUDE)" output="$(depend)" \
-	$(SHELL) $(auxdir)/makedep.sh
-	@for src in $(SDLMAIN_SOURCES); do \
-	    obj=`echo $$src | sed -e 's|.*/||' -e 's|\.[^\.]*$$|.o|'`; \
-	    echo "\$$(objects)/$$obj: $$src" >>$(depend); \
-	    echo "	\$$(CC) \$$(CFLAGS) \$$(EXTRA_CFLAGS) -c $$src -o \$$@" >>$(depend); \
-	done
+$(objects)/.created:
+	$(SHELL) $(auxdir)/mkinstalldirs $(objects)
+	touch $@
 
-include $(depend)
+update-revision:
+	$(SHELL) $(auxdir)/updaterev.sh
 
-$(objects)/$(TARGET): $(OBJECTS)
-	$(LIBTOOL) --mode=link $(CC) -o $@ $(OBJECTS) $(LDFLAGS) $(EXTRA_LDFLAGS) $(LT_LDFLAGS)
+.PHONY: all update-revision install install-bin install-hdrs install-lib install-data uninstall uninstall-bin uninstall-hdrs uninstall-lib uninstall-data clean distclean dist $(OBJECTS:.lo=.d)
+
+$(objects)/$(TARGET): $(GEN_HEADERS) $(GEN_OBJECTS) $(OBJECTS) $(VERSION_OBJECTS)
+	$(RUN_CMD_LTLINK)$(LIBTOOL) --tag=$(LIBTOOLLINKERTAG) --mode=link $(LINKER) -o $@ $(OBJECTS) $(GEN_OBJECTS) $(VERSION_OBJECTS) $(LDFLAGS) $(EXTRA_LDFLAGS) $(LT_LDFLAGS)
 
 $(objects)/$(SDLMAIN_TARGET): $(SDLMAIN_OBJECTS)
-	$(AR) cru $@ $(SDLMAIN_OBJECTS)
-	$(RANLIB) $@
+	$(RUN_CMD_LTLINK)$(LIBTOOL) --tag=$(LIBTOOLLINKERTAG) --mode=link $(LINKER) -static -o $@ $(SDLMAIN_OBJECTS) -rpath $(libdir)
 
-install: all install-bin install-hdrs install-lib install-data install-man
+$(objects)/$(SDLTEST_TARGET): $(SDLTEST_OBJECTS)
+	$(RUN_CMD_LTLINK)$(LIBTOOL) --tag=$(LIBTOOLLINKERTAG) --mode=link $(LINKER) -static -o $@ $(SDLTEST_OBJECTS) -rpath $(libdir)
+
+install: all install-bin install-hdrs install-lib install-data
 install-bin:
+ifeq ($(INSTALL_SDL2_CONFIG),TRUE)
 	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(bindir)
-	$(INSTALL) -m 755 sdl-config $(DESTDIR)$(bindir)/sdl-config
-install-hdrs:
-	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(includedir)/SDL
-	for file in $(HDRS); do \
-	    $(INSTALL) -m 644 $(srcdir)/include/$$file $(DESTDIR)$(includedir)/SDL/$$file; \
+	$(INSTALL) -m 755 sdl2-config $(DESTDIR)$(bindir)/sdl2-config
+endif
+
+install-hdrs: update-revision
+	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(includedir)/SDL2
+	for file in $(HDRS) $(SDLTEST_HDRS); do \
+	    $(INSTALL) -m 644 $(srcdir)/include/$$file $(DESTDIR)$(includedir)/SDL2/$$file; \
 	done
-	$(INSTALL) -m 644 include/SDL_config.h $(DESTDIR)$(includedir)/SDL/SDL_config.h
-install-lib: $(objects) $(objects)/$(TARGET) $(objects)/$(SDLMAIN_TARGET)
+	$(INSTALL) -m 644 include/SDL_config.h $(DESTDIR)$(includedir)/SDL2/SDL_config.h
+	if test -f include/SDL_revision.h; then \
+	    $(INSTALL) -m 644 include/SDL_revision.h $(DESTDIR)$(includedir)/SDL2/SDL_revision.h; \
+	else \
+	    $(INSTALL) -m 644 $(srcdir)/include/SDL_revision.h $(DESTDIR)$(includedir)/SDL2/SDL_revision.h; \
+	fi
+
+install-lib: $(objects)/$(TARGET) $(objects)/$(SDLMAIN_TARGET) $(objects)/$(SDLTEST_TARGET)
 	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(libdir)
 	$(LIBTOOL) --mode=install $(INSTALL) $(objects)/$(TARGET) $(DESTDIR)$(libdir)/$(TARGET)
-	$(INSTALL) -m 644 $(objects)/$(SDLMAIN_TARGET) $(DESTDIR)$(libdir)/$(SDLMAIN_TARGET)
-	$(RANLIB) $(DESTDIR)$(libdir)/$(SDLMAIN_TARGET)
+	$(LIBTOOL) --mode=install $(INSTALL) $(objects)/$(SDLMAIN_TARGET) $(DESTDIR)$(libdir)/$(SDLMAIN_TARGET)
+	$(LIBTOOL) --mode=install $(INSTALL) $(objects)/$(SDLTEST_TARGET) $(DESTDIR)$(libdir)/$(SDLTEST_TARGET)
 install-data:
 	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(datadir)/aclocal
-	$(INSTALL) -m 644 $(srcdir)/sdl.m4 $(DESTDIR)$(datadir)/aclocal/sdl.m4
+	$(INSTALL) -m 644 $(srcdir)/sdl2.m4 $(DESTDIR)$(datadir)/aclocal/sdl2.m4
 	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(libdir)/pkgconfig
-	$(INSTALL) -m 644 sdl.pc $(DESTDIR)$(libdir)/pkgconfig
-install-man:
-	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(mandir)/man3
-	for src in $(srcdir)/docs/man3/*.3; do \
-	    file=`echo $$src | sed -e 's|^.*/||'`; \
-	    $(INSTALL) -m 644 $$src $(DESTDIR)$(mandir)/man3/$$file; \
-	done
+	$(INSTALL) -m 644 sdl2.pc $(DESTDIR)$(libdir)/pkgconfig
+ifeq ($(INSTALL_SDL2_CONFIG),TRUE)
+	$(SHELL) $(auxdir)/mkinstalldirs $(DESTDIR)$(libdir)/cmake/SDL2
+	$(INSTALL) -m 644 sdl2-config.cmake $(DESTDIR)$(libdir)/cmake/SDL2
+	$(INSTALL) -m 644 sdl2-config-version.cmake $(DESTDIR)$(libdir)/cmake/SDL2
+endif
 
-uninstall: uninstall-bin uninstall-hdrs uninstall-lib uninstall-data uninstall-man
+uninstall: uninstall-bin uninstall-hdrs uninstall-lib uninstall-data
 uninstall-bin:
-	rm -f $(DESTDIR)$(bindir)/sdl-config
+	rm -f $(DESTDIR)$(bindir)/sdl2-config
 uninstall-hdrs:
-	for file in $(HDRS); do \
-	    rm -f $(DESTDIR)$(includedir)/SDL/$$file; \
+	for file in $(HDRS) $(SDLTEST_HDRS); do \
+	    rm -f $(DESTDIR)$(includedir)/SDL2/$$file; \
 	done
-	rm -f $(DESTDIR)$(includedir)/SDL/SDL_config.h
-	-rmdir $(DESTDIR)$(includedir)/SDL
+	rm -f $(DESTDIR)$(includedir)/SDL2/SDL_config.h
+	rm -f $(DESTDIR)$(includedir)/SDL2/SDL_revision.h
+	-rmdir $(DESTDIR)$(includedir)/SDL2
 uninstall-lib:
 	$(LIBTOOL) --mode=uninstall rm -f $(DESTDIR)$(libdir)/$(TARGET)
 	rm -f $(DESTDIR)$(libdir)/$(SDLMAIN_TARGET)
+	rm -f $(DESTDIR)$(libdir)/$(SDLTEST_TARGET)
 uninstall-data:
-	rm -f $(DESTDIR)$(datadir)/aclocal/sdl.m4
-	rm -f $(DESTDIR)$(libdir)/pkgconfig/sdl.pc
-uninstall-man:
-	for src in $(srcdir)/docs/man3/*.3; do \
-	    file=`echo $$src | sed -e 's|^.*/||'`; \
-	    rm -f $(DESTDIR)$(mandir)/man3/$$file; \
-	done
+	rm -f $(DESTDIR)$(datadir)/aclocal/sdl2.m4
+	rm -f $(DESTDIR)$(libdir)/pkgconfig/sdl2.pc
+	rm -f $(DESTDIR)$(libdir)/cmake/SDL2/sdl2-config.cmake
+	rm -f $(DESTDIR)$(libdir)/cmake/SDL2/sdl2-config-version.cmake
 
 clean:
 	rm -rf $(objects)
+	rm -rf $(gen)
 	if test -f test/Makefile; then (cd test; $(MAKE) $@); fi
 
 distclean: clean
-	rm -f Makefile include/SDL_config.h sdl-config
-	rm -f SDL.qpg
-	rm -f config.status config.cache config.log libtool $(depend)
+	rm -f Makefile Makefile.rules sdl2-config
+	rm -f config.status config.cache config.log libtool
 	rm -rf $(srcdir)/autom4te*
-	rm -rf $(srcdir)/test/autom4te*
 	find $(srcdir) \( \
 	    -name '*~' -o \
 	    -name '*.bak' -o \
@@ -148,15 +235,12 @@ distclean: clean
 	    -name '*.orig' -o \
 	    -name '.#*' \) \
 	    -exec rm -f {} \;
-	cp $(srcdir)/include/SDL_config.h.default $(srcdir)/include/SDL_config.h
 	if test -f test/Makefile; then (cd test; $(MAKE) $@); fi
 
 dist $(distfile):
 	$(SHELL) $(auxdir)/mkinstalldirs $(distdir)
-	tar cf - $(DIST) | (cd $(distdir); tar xf -)
-	cp $(distdir)/include/SDL_config.h.default $(distdir)/include/SDL_config.h
-	rm -rf `find $(distdir) -name .svn`
-	rm -rf $(distdir)/test/autom4te*
+	(cd $(srcdir); tar cf - $(SRC_DIST)) | (cd $(distdir); tar xf -)
+	tar cf - $(GEN_DIST) | (cd $(distdir); tar xf -)
 	find $(distdir) \( \
 	    -name '*~' -o \
 	    -name '*.bak' -o \
@@ -166,18 +250,464 @@ dist $(distfile):
 	    -name '.#*' \) \
 	    -exec rm -f {} \;
 	if test -f $(distdir)/test/Makefile; then (cd $(distdir)/test && make distclean); fi
+	(cd $(distdir); build-scripts/updaterev.sh)
 	tar cvf - $(distdir) | gzip --best >$(distfile)
 	rm -rf $(distdir)
 
 rpm: $(distfile)
 	rpmbuild -ta $?
 
-# Create a SVN snapshot that people can run update on
-snapshot:
-	svn co http://svn.libsdl.org/branches/SDL-1.2
-	(cd SDL-1.2 && ./autogen.sh && rm -rf autom4te.cache)
-	cp SDL-1.2/include/SDL_config.h.default SDL-1.2/include/SDL_config.h
-	tar zcf $(HOME)/SDL-1.2.tar.gz SDL-1.2
-	rm -f $(HOME)/SDL-1.2.zip
-	zip -r $(HOME)/SDL-1.2.zip SDL-1.2
-	rm -rf SDL-1.2
+# Build rules for objects
+-include $(OBJECTS:.lo=.d)
+
+# Special dependency for SDL.c, since it depends on SDL_revision.h
+/home/steward/Data/mmiyoo/sdl2/src/SDL.c: update-revision
+
+$(objects)/SDL.lo: /home/steward/Data/mmiyoo/sdl2/src/SDL.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_assert.lo: /home/steward/Data/mmiyoo/sdl2/src/SDL_assert.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_dataqueue.lo: /home/steward/Data/mmiyoo/sdl2/src/SDL_dataqueue.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_error.lo: /home/steward/Data/mmiyoo/sdl2/src/SDL_error.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_hints.lo: /home/steward/Data/mmiyoo/sdl2/src/SDL_hints.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_log.lo: /home/steward/Data/mmiyoo/sdl2/src/SDL_log.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_atomic.lo: /home/steward/Data/mmiyoo/sdl2/src/atomic/SDL_atomic.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_spinlock.lo: /home/steward/Data/mmiyoo/sdl2/src/atomic/SDL_spinlock.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_audio.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/SDL_audio.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_audiocvt.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/SDL_audiocvt.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_audiodev.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/SDL_audiodev.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_audiotypecvt.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/SDL_audiotypecvt.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_mixer.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/SDL_mixer.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_wave.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/SDL_wave.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_cpuinfo.lo: /home/steward/Data/mmiyoo/sdl2/src/cpuinfo/SDL_cpuinfo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_dynapi.lo: /home/steward/Data/mmiyoo/sdl2/src/dynapi/SDL_dynapi.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_clipboardevents.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_clipboardevents.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_displayevents.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_displayevents.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_dropevents.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_dropevents.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_events.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_events.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_gesture.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_gesture.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_keyboard.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_keyboard.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_mouse.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_mouse.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_quit.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_quit.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_touch.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_touch.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_windowevents.lo: /home/steward/Data/mmiyoo/sdl2/src/events/SDL_windowevents.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/imKStoUCS.lo: /home/steward/Data/mmiyoo/sdl2/src/events/imKStoUCS.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_rwops.lo: /home/steward/Data/mmiyoo/sdl2/src/file/SDL_rwops.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_haptic.lo: /home/steward/Data/mmiyoo/sdl2/src/haptic/SDL_haptic.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_hidapi.lo: /home/steward/Data/mmiyoo/sdl2/src/hidapi/SDL_hidapi.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_gamecontroller.lo: /home/steward/Data/mmiyoo/sdl2/src/joystick/SDL_gamecontroller.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_joystick.lo: /home/steward/Data/mmiyoo/sdl2/src/joystick/SDL_joystick.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_atan2.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_atan2.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_exp.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_exp.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_fmod.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_fmod.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_log.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_log.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_log10.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_log10.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_pow.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_pow.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_rem_pio2.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_rem_pio2.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/e_sqrt.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/e_sqrt.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/k_cos.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/k_cos.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/k_rem_pio2.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/k_rem_pio2.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/k_sin.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/k_sin.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/k_tan.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/k_tan.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_atan.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_atan.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_copysign.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_copysign.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_cos.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_cos.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_fabs.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_fabs.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_floor.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_floor.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_scalbn.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_scalbn.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_sin.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_sin.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/s_tan.lo: /home/steward/Data/mmiyoo/sdl2/src/libm/s_tan.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_url.lo: /home/steward/Data/mmiyoo/sdl2/src/misc/SDL_url.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_power.lo: /home/steward/Data/mmiyoo/sdl2/src/power/SDL_power.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_d3dmath.lo: /home/steward/Data/mmiyoo/sdl2/src/render/SDL_d3dmath.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render.lo: /home/steward/Data/mmiyoo/sdl2/src/render/SDL_render.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_yuv_sw.lo: /home/steward/Data/mmiyoo/sdl2/src/render/SDL_yuv_sw.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_d3d.lo: /home/steward/Data/mmiyoo/sdl2/src/render/direct3d/SDL_render_d3d.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_shaders_d3d.lo: /home/steward/Data/mmiyoo/sdl2/src/render/direct3d/SDL_shaders_d3d.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_d3d11.lo: /home/steward/Data/mmiyoo/sdl2/src/render/direct3d11/SDL_render_d3d11.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_shaders_d3d11.lo: /home/steward/Data/mmiyoo/sdl2/src/render/direct3d11/SDL_shaders_d3d11.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/render/mmiyoo/SDL_render_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_gl.lo: /home/steward/Data/mmiyoo/sdl2/src/render/opengl/SDL_render_gl.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_shaders_gl.lo: /home/steward/Data/mmiyoo/sdl2/src/render/opengl/SDL_shaders_gl.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_gles.lo: /home/steward/Data/mmiyoo/sdl2/src/render/opengles/SDL_render_gles.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_gles2.lo: /home/steward/Data/mmiyoo/sdl2/src/render/opengles2/SDL_render_gles2.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_shaders_gles2.lo: /home/steward/Data/mmiyoo/sdl2/src/render/opengles2/SDL_shaders_gles2.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_psp.lo: /home/steward/Data/mmiyoo/sdl2/src/render/psp/SDL_render_psp.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blendfillrect.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_blendfillrect.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blendline.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_blendline.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blendpoint.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_blendpoint.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_drawline.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_drawline.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_drawpoint.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_drawpoint.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_sw.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_render_sw.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_rotate.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_rotate.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_triangle.lo: /home/steward/Data/mmiyoo/sdl2/src/render/software/SDL_triangle.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_vita_gxm.lo: /home/steward/Data/mmiyoo/sdl2/src/render/vitagxm/SDL_render_vita_gxm.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_vita_gxm_memory.lo: /home/steward/Data/mmiyoo/sdl2/src/render/vitagxm/SDL_render_vita_gxm_memory.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_render_vita_gxm_tools.lo: /home/steward/Data/mmiyoo/sdl2/src/render/vitagxm/SDL_render_vita_gxm_tools.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_sensor.lo: /home/steward/Data/mmiyoo/sdl2/src/sensor/SDL_sensor.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_crc32.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_crc32.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_getenv.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_getenv.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_iconv.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_iconv.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_malloc.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_malloc.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_qsort.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_qsort.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_stdlib.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_stdlib.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_string.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_string.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_strtokr.lo: /home/steward/Data/mmiyoo/sdl2/src/stdlib/SDL_strtokr.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_thread.lo: /home/steward/Data/mmiyoo/sdl2/src/thread/SDL_thread.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_timer.lo: /home/steward/Data/mmiyoo/sdl2/src/timer/SDL_timer.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_RLEaccel.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_RLEaccel.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_0.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_0.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_1.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_1.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_A.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_A.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_N.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_N.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_auto.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_auto.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_copy.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_copy.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_blit_slow.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_blit_slow.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_bmp.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_bmp.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_clipboard.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_clipboard.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_egl.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_egl.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_fillrect.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_fillrect.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_pixels.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_pixels.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_rect.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_rect.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_shape.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_shape.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_stretch.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_stretch.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_surface.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_surface.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_video.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_video.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_vulkan_utils.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_vulkan_utils.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_yuv.lo: /home/steward/Data/mmiyoo/sdl2/src/video/SDL_yuv.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/yuv_rgb.lo: /home/steward/Data/mmiyoo/sdl2/src/video/yuv2rgb/yuv_rgb.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_locale.lo: /home/steward/Data/mmiyoo/sdl2/src/locale/SDL_locale.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_event_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/video/mmiyoo/SDL_event_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_framebuffer_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/video/mmiyoo/SDL_framebuffer_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_opengles_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/video/mmiyoo/SDL_opengles_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_video_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/video/mmiyoo/SDL_video_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_sysloadso.lo: /home/steward/Data/mmiyoo/sdl2/src/loadso/dlopen/SDL_sysloadso.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_systhread.lo: /home/steward/Data/mmiyoo/sdl2/src/thread/pthread/SDL_systhread.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_syssem.lo: /home/steward/Data/mmiyoo/sdl2/src/thread/pthread/SDL_syssem.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_sysmutex.lo: /home/steward/Data/mmiyoo/sdl2/src/thread/pthread/SDL_sysmutex.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_syscond.lo: /home/steward/Data/mmiyoo/sdl2/src/thread/pthread/SDL_syscond.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_systls.lo: /home/steward/Data/mmiyoo/sdl2/src/thread/pthread/SDL_systls.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_sysurl.lo: /home/steward/Data/mmiyoo/sdl2/src/misc/unix/SDL_sysurl.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_syslocale.lo: /home/steward/Data/mmiyoo/sdl2/src/locale/unix/SDL_syslocale.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_audio_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/audio/mmiyoo/SDL_audio_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_joystick_mmiyoo.lo: /home/steward/Data/mmiyoo/sdl2/src/joystick/mmiyoo/SDL_joystick_mmiyoo.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_sysfilesystem.lo: /home/steward/Data/mmiyoo/sdl2/src/filesystem/unix/SDL_sysfilesystem.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_systimer.lo: /home/steward/Data/mmiyoo/sdl2/src/timer/unix/SDL_systimer.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_evdev.lo: /home/steward/Data/mmiyoo/sdl2/src/core/linux/SDL_evdev.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_evdev_kbd.lo: /home/steward/Data/mmiyoo/sdl2/src/core/linux/SDL_evdev_kbd.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_evdev_kbd_freebsd.lo: /home/steward/Data/mmiyoo/sdl2/src/core/freebsd/SDL_evdev_kbd_freebsd.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_evdev_capabilities.lo: /home/steward/Data/mmiyoo/sdl2/src/core/linux/SDL_evdev_capabilities.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_threadprio.lo: /home/steward/Data/mmiyoo/sdl2/src/core/linux/SDL_threadprio.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_poll.lo: /home/steward/Data/mmiyoo/sdl2/src/core/unix/SDL_poll.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_syshaptic.lo: /home/steward/Data/mmiyoo/sdl2/src/haptic/dummy/SDL_syshaptic.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_dummysensor.lo: /home/steward/Data/mmiyoo/sdl2/src/sensor/dummy/SDL_dummysensor.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+
+$(objects)/SDL_dummy_main.lo: /home/steward/Data/mmiyoo/sdl2/src/main/dummy/SDL_dummy_main.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+
+$(objects)/SDL_test_assert.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_assert.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_common.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_common.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_compare.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_compare.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_crc32.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_crc32.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_font.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_font.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_fuzzer.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_fuzzer.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_harness.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_harness.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_imageBlit.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_imageBlit.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_imageBlitBlend.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_imageBlitBlend.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_imageFace.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_imageFace.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_imagePrimitives.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_imagePrimitives.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_imagePrimitivesBlend.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_imagePrimitivesBlend.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_log.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_log.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_md5.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_md5.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_memory.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_memory.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@ 
+$(objects)/SDL_test_random.lo: /home/steward/Data/mmiyoo/sdl2/src/test/SDL_test_random.c $(objects)/.created
+	$(RUN_CMD_CC)$(LIBTOOL) --tag=CC --mode=compile $(CC) $(CFLAGS) $(EXTRA_CFLAGS) -MMD -MT $@ -c $< -o $@
+

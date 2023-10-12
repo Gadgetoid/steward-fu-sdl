@@ -1,0 +1,270 @@
+../../Database.o: ../../Database.cpp \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/stdc-predef.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/string.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/libc-header-start.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/features.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/sys/cdefs.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/wordsize.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/long-double.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/gnu/stubs.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/gnu/stubs-hard.h \
+ /opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include/stddef.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/locale_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/__locale_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/strings.h \
+ ../../types.h ../../../src/libretro-common/include/retro_miscellaneous.h \
+ /opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include/stdint.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/stdint.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/typesizes.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/wchar.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdint-intn.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdint-uintn.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/math.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/cmath \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/arm-linux-gnueabihf/bits/c++config.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/arm-linux-gnueabihf/bits/os_defines.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/arm-linux-gnueabihf/bits/cpu_defines.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/cpp_type_traits.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/ext/type_traits.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/math.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/math-vector.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/libm-simd-decl-stubs.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/floatn.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/floatn-common.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/flt-eval-method.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/fp-logb.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/fp-fast.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathcalls-helper-functions.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathcalls.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathcalls-narrow.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/iscanonical.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathinline.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/std_abs.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/stdlib.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/waitflags.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/waitstatus.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/sys/types.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/clock_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/clockid_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/time_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/timer_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/endian.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/endian.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/byteswap.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/uintn-identity.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/sys/select.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/select.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/sigset_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/__sigset_t.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_timeval.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_timespec.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/pthreadtypes.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/thread-shared-types.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/pthreadtypes-arch.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/alloca.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdlib-bsearch.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdlib-float.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/time.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/time.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/timex.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_tm.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_itimerspec.h \
+ /opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include-fixed/limits.h \
+ /opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include-fixed/syslimits.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/limits.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/posix1_lim.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/local_lim.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/linux/limits.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/posix2_lim.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/xopen_lim.h \
+ /opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/uio_lim.h \
+ ../../../src/libretro-common/include/retro_inline.h \
+ ../../../src/libretro-common/include/math/fxp.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/atomic \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/atomic_base.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/atomic_lockfree_defines.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/move.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/concept_check.h \
+ /opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/type_traits \
+ ../../Database.h
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/stdc-predef.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/string.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/libc-header-start.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/features.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/sys/cdefs.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/wordsize.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/long-double.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/gnu/stubs.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/gnu/stubs-hard.h:
+
+/opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include/stddef.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/locale_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/__locale_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/strings.h:
+
+../../types.h:
+
+../../../src/libretro-common/include/retro_miscellaneous.h:
+
+/opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include/stdint.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/stdint.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/typesizes.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/wchar.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdint-intn.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdint-uintn.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/math.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/cmath:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/arm-linux-gnueabihf/bits/c++config.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/arm-linux-gnueabihf/bits/os_defines.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/arm-linux-gnueabihf/bits/cpu_defines.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/cpp_type_traits.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/ext/type_traits.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/math.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/math-vector.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/libm-simd-decl-stubs.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/floatn.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/floatn-common.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/flt-eval-method.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/fp-logb.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/fp-fast.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathcalls-helper-functions.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathcalls.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathcalls-narrow.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/iscanonical.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/mathinline.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/std_abs.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/stdlib.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/waitflags.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/waitstatus.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/sys/types.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/clock_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/clockid_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/time_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/timer_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/endian.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/endian.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/byteswap.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/uintn-identity.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/sys/select.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/select.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/sigset_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/__sigset_t.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_timeval.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_timespec.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/pthreadtypes.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/thread-shared-types.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/pthreadtypes-arch.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/alloca.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdlib-bsearch.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/stdlib-float.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/time.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/time.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/timex.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_tm.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/types/struct_itimerspec.h:
+
+/opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include-fixed/limits.h:
+
+/opt/prebuilt/lib/gcc/arm-linux-gnueabihf/8.2.1/include-fixed/syslimits.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/limits.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/posix1_lim.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/local_lim.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/linux/limits.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/posix2_lim.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/xopen_lim.h:
+
+/opt/mmiyoo/arm-buildroot-linux-gnueabihf/sysroot/usr/include/bits/uio_lim.h:
+
+../../../src/libretro-common/include/retro_inline.h:
+
+../../../src/libretro-common/include/math/fxp.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/atomic:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/atomic_base.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/atomic_lockfree_defines.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/move.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/bits/concept_check.h:
+
+/opt/prebuilt/arm-linux-gnueabihf/include/c++/8.2.1/type_traits:
+
+../../Database.h:

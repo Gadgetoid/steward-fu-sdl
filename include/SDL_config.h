@@ -98,7 +98,7 @@
 #define HAVE_MEMSET 1
 #define HAVE_MEMCPY 1
 #define HAVE_MEMMOVE 1
-#define HAVE_MEMCMP 1
+/* #undef HAVE_MEMCMP */
 #define HAVE_WCSLEN 1
 /* #undef HAVE_WCSLCPY */
 /* #undef HAVE_WCSLCAT */
@@ -133,7 +133,7 @@
 /* #undef HAVE__UI64TOA */
 #define HAVE_STRTOLL 1
 #define HAVE_STRTOULL 1
-#define HAVE_STRTOD 1
+/* #undef HAVE_STRTOD */
 #define HAVE_ATOI 1
 #define HAVE_ATOF 1
 #define HAVE_STRCMP 1
@@ -175,7 +175,7 @@
 #define HAVE_LOG10F 1
 #define HAVE_LROUND 1
 #define HAVE_LROUNDF 1
-#define HAVE_POW 1
+/* #undef HAVE_POW */
 #define HAVE_POWF 1
 #define HAVE_ROUND 1
 #define HAVE_ROUNDF 1
@@ -225,7 +225,7 @@
 #define HAVE_INOTIFY_INIT1 1
 #define HAVE_INOTIFY 1
 /* #undef HAVE_IBUS_IBUS_H */
-#define HAVE_IMMINTRIN_H 1
+/* #undef HAVE_IMMINTRIN_H */
 /* #undef HAVE_LIBUDEV_H */
 /* #undef HAVE_LIBSAMPLERATE_H */
 /* #undef HAVE_LIBDECOR_H */

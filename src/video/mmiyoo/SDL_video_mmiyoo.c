@@ -25,354 +25,1239 @@
 
 #if SDL_VIDEO_DRIVER_MMIYOO
 
+#include <dirent.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include <linux/fb.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <time.h>
+#include <json-c/json.h>
 
+#include "../../events/SDL_events_c.h"
 #include "../SDL_sysvideo.h"
+#include "../SDL_sysvideo.h"
+#include "../SDL_pixels_c.h"
+
+#include "SDL_image.h"
 #include "SDL_version.h"
 #include "SDL_syswm.h"
 #include "SDL_loadso.h"
 #include "SDL_events.h"
-
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "../SDL_sysvideo.h"
-#include "../SDL_pixels_c.h"
-#include "../../events/SDL_events_c.h"
-
 #include "SDL_video_mmiyoo.h"
 #include "SDL_event_mmiyoo.h"
-#include "SDL_framebuffer_mmiyoo.h"
 #include "SDL_opengles_mmiyoo.h"
+#include "SDL_framebuffer_mmiyoo.h"
 
-#define MMIYOO_DRIVER_NAME "mmiyoo"
-#define FB_W    640
-#define FB_H    480
-#define FB_BPP  4
-#define FB_SIZE (FB_W * FB_H * FB_BPP * 2)
+#include "hex_pen.h"
+#include "scaler_neon.h"
 
+NDS nds = {0};
 MMIYOO_VideoInfo MMiyooVideoInfo={0};
 
-extern MMIYOO_EventInfo MMiyooEventInfo;
+int down_scale = 1;
 
-static int fb_idx = 0;
-static int fb_dev = -1;
-static void *fb_vaddr[2] = {0};
-static uint32_t *fb_mem = NULL;
-static struct fb_var_screeninfo vinfo = {0};
+static GFX gfx = {0};
+static SDL_Surface *cvt = NULL;
+
+extern MMIYOO_EventInfo MMiyooEventInfo;
 
 static int MMIYOO_VideoInit(_THIS);
 static int MMIYOO_SetDisplayMode(_THIS, SDL_VideoDisplay *display, SDL_DisplayMode *mode);
 static void MMIYOO_VideoQuit(_THIS);
 
-static int fb_init(void)
+void neon_memcpy(void *dest, const void *src, size_t n);
+
+static int read_config(void)
 {
-    fb_idx = 0;
-    fb_dev = open("/dev/fb0", O_RDWR);
-    if(fb_dev < 0) {
-        printf("failed to open /dev/fb0\n");
+    struct json_object *jval = NULL;
+    struct json_object *jfile = NULL;
+
+    jfile = json_object_from_file(nds.cfg_path);
+    if (jfile == NULL) {
+        printf("Failed to read settings from json file (%s)\n", nds.cfg_path);
         return -1;
     }
 
-    if(ioctl(fb_dev, FBIOGET_VSCREENINFO, &vinfo) < 0) {
-        close(fb_dev);
-        printf("failed to ioctl /dev/fb0\n");
-        return -1;
+    json_object_object_get_ex(jfile, JSON_NDS_PEN_SEL, &jval);
+    if (jval) {
+        nds.pen.sel = json_object_get_int(jval);
+        printf("[json] nds.pen.sel: %d\n", nds.pen.sel);
+        if (nds.pen.sel >= nds.pen.max) {
+            printf("Invalid nds.pen.sel(%d), reset as 0\n", nds.pen.sel);
+            nds.pen.sel = 0;
+        }
     }
-    vinfo.yres_virtual = vinfo.yres * 2;
-    ioctl(fb_dev, FBIOPUT_VSCREENINFO, &vinfo);
 
-    fb_mem = (uint32_t *)mmap(NULL, FB_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fb_dev, 0);
-    if(fb_mem == (void *) -1) {
-        close(fb_dev);
-        printf("failed to mmap /dev/fb0\n");
-        return -1;
+    json_object_object_get_ex(jfile, JSON_NDS_PEN_POS, &jval);
+    if (jval) {
+        nds.pen.pos = json_object_get_int(jval) == 0 ? 0 : 1;
+        printf("[json] nds.pen.pos: %d\n", nds.pen.pos);
     }
-    memset(fb_mem, 0, FB_SIZE);
-    fb_vaddr[0] = fb_mem;
-    fb_vaddr[1] = ((uint8_t *)fb_mem) + (FB_W * FB_H * FB_BPP);
+
+    json_object_object_get_ex(jfile, JSON_NDS_THEME_SEL, &jval);
+    if (jval) {
+        nds.theme.sel = json_object_get_int(jval);
+        printf("[json] nds.theme.sel: %d\n", nds.theme.sel);
+        if (nds.theme.sel > nds.theme.max) {
+            printf("Invalid nds.theme.sel(%d), reset as 0\n", nds.theme.sel);
+            nds.theme.sel = 0;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_DIS_MODE, &jval);
+    if (jval) {
+        nds.dis_mode = json_object_get_int(jval);
+        printf("[json] nds.dis_mode: %d\n", nds.dis_mode);
+        if (nds.dis_mode > NDS_DIS_MODE_LAST) {
+            printf("Invalid nds.dis_mode(%d), reset as 0\n", nds.dis_mode);
+            nds.dis_mode = 0;
+        }
+    }
+    
+    json_object_object_get_ex(jfile, JSON_NDS_ALT_MODE, &jval);
+    if (jval) {
+        nds.alt_mode = json_object_get_int(jval);
+        printf("[json] nds.alt_mode: %d\n", nds.alt_mode);
+        if (nds.alt_mode > NDS_DIS_MODE_LAST) {
+            printf("Invalid nds.alt_mode(%d), reset as 0\n", nds.alt_mode);
+            nds.alt_mode = 0;
+        }
+    }
+    
+    json_object_object_get_ex(jfile, JSON_NDS_PEN_XV, &jval);
+    if (jval) {
+        nds.pen.xv = json_object_get_int(jval);
+        printf("[json] nds.xv: %d\n", nds.pen.xv);
+        if (nds.pen.xv <= 0) {
+            printf("Invalid nds.pen.xv(%d), reset as 10000\n", nds.pen.xv);
+            nds.pen.xv = 10000;
+        }
+    }
+    
+    json_object_object_get_ex(jfile, JSON_NDS_PEN_YV, &jval);
+    if (jval) {
+        nds.pen.yv = json_object_get_int(jval);
+        printf("[json] nds.yv: %d\n", nds.pen.yv);
+        if (nds.pen.yv <= 0) {
+            printf("Invalid nds.pen.yv(%d), reset as 12000\n", nds.pen.yv);
+            nds.pen.yv = 12000;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_ALPHA_VALUE, &jval);
+    if (jval) {
+        nds.alpha.val = json_object_get_int(jval);
+        printf("[json] nds.alpha.val: %d\n", nds.alpha.val);
+        if ((nds.alpha.val < 0) || (nds.alpha.val > NDS_ALPHA_MAX)) {
+            printf("Invalid nds.alpha.val(%d), reset as 0\n", nds.alpha.val);
+            nds.alpha.val = 0;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_ALPHA_POSITION, &jval);
+    if (jval) {
+        nds.alpha.pos = json_object_get_int(jval);
+        printf("[json] nds.alpha.pos: %d\n", nds.alpha.pos);
+        if ((nds.alpha.pos < 0) || (nds.alpha.pos >= 4)) {
+            printf("Invalid nds.alpha.pos(%d), reset as 0\n", nds.alpha.pos);
+            nds.alpha.pos = 0;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_ALPHA_BORDER, &jval);
+    if (jval) {
+        nds.alpha.border = json_object_get_int(jval);
+        nds.alpha.border%= NDS_BORDER_MAX;
+        printf("[json] nds.alpha.border: %d\n", nds.alpha.border);
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_MAX_CPU, &jval);
+    if (jval) {
+        nds.maxcpu = json_object_get_int(jval);
+        printf("[json] nds.maxcpu: %d\n", nds.maxcpu);
+        if (nds.maxcpu < 0) {
+            printf("Invalid nds.maxcpu(%d), reset as 1600\n", nds.maxcpu);
+            nds.maxcpu = 1600;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_MIN_CPU, &jval);
+    if (jval) {
+        nds.mincpu = json_object_get_int(jval);
+        printf("[json] nds.mincpu: %d\n", nds.mincpu);
+        if (nds.mincpu < 0) {
+            printf("Invalid nds.mincpu(%d), reset as 500\n", nds.mincpu);
+            nds.mincpu = 500;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_OVERLAY, &jval);
+    if (jval) {
+        nds.overlay.sel = json_object_get_int(jval);
+        printf("[json] nds.overlay.sel: %d\n", nds.overlay.sel);
+        if (nds.overlay.sel < 0) {
+            printf("Invalid nds.overlay.sel(%d), reset as 0\n", nds.overlay.sel);
+            nds.overlay.sel = 0;
+        }
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_SWAP_L1L2, &jval);
+    if (jval) {
+        nds.swap_l1l2 = json_object_get_int(jval) ? 1 : 0;
+        printf("[json] nds.swap_l1l2: %d\n", nds.swap_l1l2);
+    }
+
+    json_object_object_get_ex(jfile, JSON_NDS_SWAP_R1R2, &jval);
+    if (jval) {
+        nds.swap_r1r2 = json_object_get_int(jval) ? 1 : 0;
+        printf("[json] nds.swap_r1r2: %d\n", nds.swap_r1r2);
+    }
+
+    reload_pen();
+    reload_overlay();
+    json_object_put(jfile);
     return 0;
 }
 
-static int fb_deinit(void)
+static int write_config(void)
 {
-    munmap(fb_mem, FB_SIZE);
-    fb_mem = NULL;
+    struct json_object *jfile = NULL;
 
-    close(fb_dev);
-    fb_dev = -1;
+    jfile = json_object_from_file(nds.cfg_path);
+    if (jfile == NULL) {
+        printf("Failed to write settings to json file (%s)\n", nds.cfg_path);
+        return -1;
+    }
+
+    json_object_object_add(jfile, JSON_NDS_PEN_SEL, json_object_new_int(nds.pen.sel));
+    json_object_object_add(jfile, JSON_NDS_THEME_SEL, json_object_new_int(nds.theme.sel));
+    json_object_object_add(jfile, JSON_NDS_DIS_MODE, json_object_new_int(nds.dis_mode));
+    json_object_object_add(jfile, JSON_NDS_ALPHA_VALUE, json_object_new_int(nds.alpha.val));
+    json_object_object_add(jfile, JSON_NDS_ALPHA_POSITION, json_object_new_int(nds.alpha.pos));
+    json_object_object_add(jfile, JSON_NDS_ALPHA_BORDER, json_object_new_int(nds.alpha.border));
+    json_object_object_add(jfile, JSON_NDS_OVERLAY, json_object_new_int(nds.overlay.sel));
+    json_object_object_add(jfile, JSON_NDS_ALT_MODE, json_object_new_int(nds.alt_mode));
+
+    json_object_to_file(nds.cfg_path, jfile);
+    json_object_put(jfile);
+    printf("Writing settings to json file !\n");
     return 0;
 }
 
-void fb_fill(const void *pixels, const SDL_Rect *rect, int pitch)
+static int get_cpuclock(void)
 {
-    int x = 0, y = 0;
-    uint32_t *d = fb_vaddr[fb_idx % 2];
+    static const uint64_t divsrc = 432000000llu * 524288;
 
-    //printf("%s, x:%d, y:%d, w:%d, h:%d, pitch:%d\n", __func__, rect->x, rect->y, rect->w, rect->h, pitch);
-    if((pitch == 512) && (MMiyooVideoInfo.window->w == 256) && (MMiyooVideoInfo.window->h == 384)) {
-        uint32_t r=0, g=0, b=0, t=0;
-        uint16_t *s = (uint16_t *)pixels;
+    int fd_mem = -1;
+    void *pll_map = NULL;
+    uint32_t rate = 0;
+    uint32_t lpf_value = 0;
+    uint32_t post_div = 0;
 
-        for(y = rect->y; y < rect->h; y++) {
-            for(x = rect->x; x < rect->w; x++) {
-                t = s[x + (y * rect->w)];
-                r = (t & 0xf800) << 8;
-                g = (t & 0x7e0) << 5;
-                b = (t & 0x1f) << 3;
-
-                t = 0xff000000 | r | g | b;
-                d[((479 - ((y << 1) + 0)) * 640) + (639 - ((x << 1) + 0))] = t;
-                d[((479 - ((y << 1) + 0)) * 640) + (639 - ((x << 1) + 1))] = t;
-                d[((479 - ((y << 1) + 1)) * 640) + (639 - ((x << 1) + 0))] = t;
-                d[((479 - ((y << 1) + 1)) * 640) + (639 - ((x << 1) + 1))] = t;
-            }
-        }
-    }
-    else if((pitch == 640) && (MMiyooVideoInfo.window->w == 320) && (MMiyooVideoInfo.window->h == 240)) {
-        uint32_t r=0, g=0, b=0, t=0;
-        uint16_t *s = (uint16_t *)pixels;
-
-        for(y = rect->y; y < rect->h; y++) {
-            for(x = rect->x; x < rect->w; x++) {
-                t = s[x + (y * 320)];
-                r = (t & 0xf800) << 8;
-                g = (t & 0x7e0) << 5;
-                b = (t & 0x1f) << 3;
-
-                t = 0xff000000 | r | g | b;
-                d[((479 - ((y << 1) + 0)) * 640) + (639 - ((x << 1) + 0))] = t;
-                d[((479 - ((y << 1) + 0)) * 640) + (639 - ((x << 1) + 1))] = t;
-                d[((479 - ((y << 1) + 1)) * 640) + (639 - ((x << 1) + 0))] = t;
-                d[((479 - ((y << 1) + 1)) * 640) + (639 - ((x << 1) + 1))] = t;
-            }
-        }
-    }
-    else if((pitch == 1280) && (MMiyooVideoInfo.window->w == 320) && (MMiyooVideoInfo.window->h == 240)) {
-        uint32_t t=0;
-        uint32_t *s = (uint32_t *)pixels;
-
-        for(y = rect->y; y < rect->h; y++) {
-            for(x = rect->x; x < rect->w; x++) {
-                t = 0xff000000 | s[x + (y * 320)];
-                d[((479 - ((y << 1) + 0)) * 640) + (639 - ((x << 1) + 0))] = t;
-                d[((479 - ((y << 1) + 0)) * 640) + (639 - ((x << 1) + 1))] = t;
-                d[((479 - ((y << 1) + 1)) * 640) + (639 - ((x << 1) + 0))] = t;
-                d[((479 - ((y << 1) + 1)) * 640) + (639 - ((x << 1) + 1))] = t;
-            }
-        }
-    }
-    else if((pitch == 960) && (MMiyooVideoInfo.window->w == 480) && (MMiyooVideoInfo.window->h == 272)) {
-        uint32_t r=0, g=0, b=0, t=0, x0=0, y0=0;
-        uint16_t *s = (uint16_t *)pixels;
-
-        y0 = 59;
-        for(y = rect->y; y < rect->h; y++, y0++) {
-            x0 = 0;
-            for(x = rect->x; x < rect->w; x++, x0++) {
-                t = s[x + ((y + 0) * 480)];
-                r = (t & 0xf800) << 8;
-                g = (t & 0x7e0) << 5;
-                b = (t & 0x1f) << 3;
-                
-                t = 0xff000000 | r | g | b;
-                d[((479 - y0) * 640) + (639 - x0)] = t;
-                if(y && (y % 3) == 0){
-                    d[((479 - (y0 + 1)) * 640) + (639 - x0)] = t;
-                    if(x && (x % 3) == 0){
-                        d[((479 - (y0 + 1)) * 640) + (639 - (x0 + 1))] = t;
-                    }
-                }
-                if(x && (x % 3) == 0){
-                    d[((479 - y0) * 640) + (639 - (x0 + 1))] = t;
-                    x0+= 1;
-                }
-            }
-            if(y && (y % 3) == 0){
-                y0+= 1;
-            }
-        }
-    }
-    else if((pitch == 1920) && (MMiyooVideoInfo.window->w == 480) && (MMiyooVideoInfo.window->h == 272)) {
-        uint32_t t=0, x0=0, y0=0;
-        uint32_t *s = (uint32_t *)pixels;
-
-        y0 = 59;
-        for(y = rect->y; y < rect->h; y++, y0++) {
-            x0 = 0;
-            for(x = rect->x; x < rect->w; x++, x0++) {
-                t = 0xff000000 | s[x + ((y + 0) * 480)];
-                d[((479 - y0) * 640) + (639 - x0)] = t;
-                if(y && (y % 3) == 0){
-                    d[((479 - (y0 + 1)) * 640) + (639 - x0)] = t;
-                    if(x && (x % 3) == 0){
-                        d[((479 - (y0 + 1)) * 640) + (639 - (x0 + 1))] = t;
-                    }
-                }
-                if(x && (x % 3) == 0){
-                    d[((479 - y0) * 640) + (639 - (x0 + 1))] = t;
-                    x0+= 1;
-                }
-            }
-            if(y && (y % 3) == 0){
-                y0+= 1;
-            }
-        }
-    }
-    else if((pitch == 960) && (MMiyooVideoInfo.window->w == 480) && (MMiyooVideoInfo.window->h == 360)) {
-        uint32_t r=0, g=0, b=0, t=0, x0=0, y0=0;
-        uint16_t *s = (uint16_t *)pixels;
-
-        y0 = 0;
-        for(y = rect->y; y < rect->h; y++, y0++) {
-            x0 = 0;
-            for(x = rect->x; x < rect->w; x++, x0++) {
-                t = s[x + ((y + 0) * 480)];
-                r = (t & 0xf800) << 8;
-                g = (t & 0x7e0) << 5;
-                b = (t & 0x1f) << 3;
-                
-                t = 0xff000000 | r | g | b;
-                d[((479 - y0) * 640) + (639 - x0)] = t;
-                if(y && (y % 3) == 0){
-                    d[((479 - (y0 + 1)) * 640) + (639 - x0)] = t;
-                    if(x && (x % 3) == 0){
-                        d[((479 - (y0 + 1)) * 640) + (639 - (x0 + 1))] = t;
-                    }
-                }
-                if(x && (x % 3) == 0){
-                    d[((479 - y0) * 640) + (639 - (x0 + 1))] = t;
-                    x0+= 1;
-                }
-            }
-            if(y && (y % 3) == 0){
-                y0+= 1;
-            }
-        }
-    }
-    else if((pitch == 1920) && (MMiyooVideoInfo.window->w == 480) && (MMiyooVideoInfo.window->h == 360)) {
-        uint32_t t=0, x0=0, y0=0;
-        uint16_t *s = (uint16_t *)pixels;
-
-        y0 = 0;
-        for(y = rect->y; y < rect->h; y++, y0++) {
-            x0 = 0;
-            for(x = rect->x; x < rect->w; x++, x0++) {
-                t = 0xff000000 | s[x + ((y + 0) * 480)];
-                d[((479 - y0) * 640) + (639 - x0)] = t;
-                if(y && (y % 3) == 0){
-                    d[((479 - (y0 + 1)) * 640) + (639 - x0)] = t;
-                    if(x && (x % 3) == 0){
-                        d[((479 - (y0 + 1)) * 640) + (639 - (x0 + 1))] = t;
-                    }
-                }
-                if(x && (x % 3) == 0){
-                    d[((479 - y0) * 640) + (639 - (x0 + 1))] = t;
-                    x0+= 1;
-                }
-            }
-            if(y && (y % 3) == 0){
-                y0+= 1;
-            }
-        }
-    }
-    else if((pitch == 1280) && (MMiyooVideoInfo.window->w == 640) && (MMiyooVideoInfo.window->h == 480)){
-        uint32_t r, g, b, t;
-        uint16_t *s = (uint16_t *)pixels;
-
-        for(y = rect->y; y < rect->h; y++) {
-            for(x = rect->x; x < rect->w; x++) {
-                t = s[x + (y * 640)];
-                r = (t & 0xf800) << 8;
-                g = (t & 0x7e0) << 5;
-                b = (t & 0x1f) << 3;
-                d[((479 - y) * 640) + (639 - x)] = (0xff000000 | r | g | b);
-            }
-        }
-    }
-    else if((pitch == 2560) && (MMiyooVideoInfo.window->w == 640) && (MMiyooVideoInfo.window->h == 480)){
-        uint32_t *s = (uint32_t *)pixels;
-
-        for(y = rect->y; y < rect->h; y++) {
-            for(x = rect->x; x < rect->w; x++) {
-                d[((479 - y) * 640) + (639 - x)] = 0xff000000 | s[x + (y * 640)];
-            }
-        }
-    }
-    else if((pitch == 1600) && (MMiyooVideoInfo.window->w == 800) && (MMiyooVideoInfo.window->h == 600)) {
-        uint16_t *s = (uint16_t *)pixels;
-        uint32_t r=0, g=0, b=0, t=0, xinc = 0, yinc = 0;
-
-        yinc = 0;
-        for(y = rect->y; y < rect->h; y++) {
-            if(y && (y % 5) == 0) {
-                yinc += 1;
-            }
-            
-            xinc = 0;
-            for(x = rect->x; x < rect->w; x++) {
-                if(x && (x % 5) == 0) {
-                    xinc += 1;
-                }
-                t = s[x + (y * 800)];
-                r = (t & 0xf800) << 8;
-                g = (t & 0x7e0) << 5;
-                b = (t & 0x1f) << 3;
-                d[((479 - (y - yinc)) * 640) + (639 - (x - xinc))] = (0xff000000 | r | g | b);
-            }
-        }
-    }
-    else if((pitch == 3200) && (MMiyooVideoInfo.window->w == 800) && (MMiyooVideoInfo.window->h == 600)) {
-        uint32_t *s = (uint32_t *)pixels;
-        uint32_t xinc = 0, yinc = 0;
-
-        yinc = 0;
-        for(y = rect->y; y < rect->h; y++) {
-            if(y && (y % 5) == 0) {
-                yinc += 1;
-            }
-            
-            xinc = 0;
-            for(x = rect->x; x < rect->w; x++) {
-                if(x && (x % 5) == 0) {
-                    xinc += 1;
-                }
-                d[((479 - (y - yinc)) * 640) + (639 - (x - xinc))] = s[x + (y * 800)];
-            }
-        }
+    fd_mem = open("/dev/mem", O_RDWR);
+    if (fd_mem < 0) {
+        return 0;
     }
 
-    if(MMiyooEventInfo.mode == MMIYOO_MOUSE_MODE) {
-        int cc=0;
-        int xpos = (MMiyooEventInfo.mouse.x * 640) / MMiyooEventInfo.mouse.xmax;
-        int ypos = (MMiyooEventInfo.mouse.y * 480) / MMiyooEventInfo.mouse.ymax;
-        uint32_t col[]={0xffff0000, 0xff00ff00, 0xff0000ff};
-        for(y = -4; y < 5; y++) {
-            for(x = -4; x < 5; x++) {
-                d[((479 - (ypos + y)) * 640) + (639 - (xpos + x))] = col[cc / 3];
-            }
-            cc+= 1;
+    pll_map = mmap(0, PLL_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_mem, BASE_REG_MPLL_PA);
+    if (pll_map) {
+        volatile uint8_t* p8 = (uint8_t*)pll_map;
+        volatile uint16_t* p16 = (uint16_t*)pll_map;
+
+        lpf_value = p16[0x2a4] + (p16[0x2a6] << 16);
+        post_div = p16[0x232] + 1;
+        if (lpf_value == 0) {
+            lpf_value = (p8[0x2c2 << 1] << 16) + (p8[0x2c1 << 1] << 8) + p8[0x2c0 << 1];
         }
+
+        if (lpf_value && post_div) {
+            rate = (divsrc / lpf_value * 2 / post_div * 16);
+        }
+        printf("Current cpuclock=%u (lpf=%u, post_div=%u)\n", rate, lpf_value, post_div);
+        munmap(pll_map, PLL_SIZE);
+    }
+    close(fd_mem);
+    return rate / 1000000;
+}
+
+static void write_file(const char* fname, char* str)
+{
+	int fd = open(fname, O_WRONLY);
+
+	if (fd >= 0) {
+        write(fd, str, strlen(str));
+        close(fd);
     }
 }
 
-void fb_flip(void)
+static int set_cpuclock(uint32_t newclock)
 {
-    int ret = 0;
+    int fd_mem = -1;
+    void *pll_map = NULL;
+    uint32_t post_div = 0;
+    char clockstr[16] = {0};
+    const char fn_governor[] = "/sys/devices/system/cpu/cpufreq/policy0/scaling_governor";
+    const char fn_setspeed[] = "/sys/devices/system/cpu/cpufreq/policy0/scaling_setspeed";
 
-    vinfo.yoffset = (fb_idx % 2) * vinfo.yres;
-    ioctl(fb_dev, FBIOPAN_DISPLAY, &vinfo);
-    ioctl(fb_dev, FBIO_WAITFORVSYNC, &ret);
-    fb_idx += 1;
+    if ((newclock < nds.mincpu) || (newclock > nds.maxcpu)) {
+        return -1;
+    }
+
+    fd_mem = open("/dev/mem", O_RDWR);
+    if (fd_mem < 0) {
+        return -1;
+    }
+
+    pll_map = mmap(0, PLL_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_mem, BASE_REG_MPLL_PA);
+    if (pll_map) {
+        printf("Set cpuclock %dMHz\n", newclock);
+
+        newclock*= 1000;
+        sprintf(clockstr, "%d", newclock);
+        write_file(fn_governor, "userspace");
+        write_file(fn_setspeed, clockstr);
+
+        if (newclock >= 800000) {
+            post_div = 2;
+        }
+        else if (newclock >= 400000) {
+            post_div = 4;
+        }
+        else if (newclock >= 200000) {
+            post_div = 8;
+        }
+        else {
+            post_div = 16;
+        }
+
+        if (1) {
+            static const uint64_t divsrc = 432000000llu * 524288;
+            uint32_t rate = (newclock * 1000) / 16 * post_div / 2;
+            uint32_t lpf = (uint32_t)(divsrc / rate);
+            volatile uint16_t* p16 = (uint16_t*)pll_map;
+            uint32_t cur_post_div = (p16[0x232] & 0x0f) + 1;
+            uint32_t tmp_post_div = cur_post_div;
+
+            if (post_div > cur_post_div) {
+                while (tmp_post_div != post_div) {
+                    tmp_post_div <<= 1;
+                    p16[0x232] = (p16[0x232] & 0xf0) | ((tmp_post_div - 1) & 0x0f);
+                }
+            }
+
+            p16[0x2A8] = 0x0000;        // reg_lpf_enable = 0
+            p16[0x2AE] = 0x000f;        // reg_lpf_update_cnt = 32
+            p16[0x2A4] = lpf & 0xffff;  // set target freq to LPF high
+            p16[0x2A6] = lpf >> 16;     // set target freq to LPF high
+            p16[0x2B0] = 0x0001;        // switch to LPF control
+            p16[0x2B2]|= 0x1000;        // from low to high
+            p16[0x2A8] = 0x0001;        // reg_lpf_enable = 1
+            while(!(p16[0x2ba] & 1));   // polling done
+            p16[0x2A0] = lpf & 0xffff;  // store freq to LPF low
+            p16[0x2A2] = lpf >> 16;     // store freq to LPF low
+
+            if (post_div < cur_post_div) {
+                while (tmp_post_div != post_div) {
+                    tmp_post_div >>= 1;
+                    p16[0x232] = (p16[0x232] & 0xf0) | ((tmp_post_div - 1) & 0x0f);
+                }
+            }
+        }
+        munmap(pll_map, PLL_SIZE);
+    }
+    close(fd_mem);
+    return 0;
+}
+
+static int get_dir_path(const char *path, int desire, char *buf)
+{
+    DIR *d = NULL;
+    int count = 0, r = -1;
+    struct dirent *dir = NULL;
+
+    d = opendir(path);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (strcmp(dir->d_name, ".") == 0) {
+                continue;
+            }
+
+            if (strcmp(dir->d_name, "..") == 0) {
+                continue;
+            }
+
+            if (dir->d_type != DT_DIR) {
+                continue;
+            }
+
+            if (count == desire) {
+                r = snprintf(buf, MAX_PATH, "%s/%s", path, dir->d_name) ? 0 : 1;
+                break;
+            }
+            count+= 1;
+        }
+        closedir(d);
+    }
+    return r;
+}
+
+static int get_file_path(const char *path, int desire, char *buf, int add_path)
+{
+    DIR *d = NULL;
+    int count = 0, r = -1;
+    struct dirent *dir = NULL;
+
+    d = opendir(path);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (strcmp(dir->d_name, ".") == 0) {
+                continue;
+            }
+
+            if (strcmp(dir->d_name, "..") == 0) {
+                continue;
+            }
+
+            if (dir->d_type == DT_DIR) {
+                continue;
+            }
+
+            if (count == desire) {
+                if (add_path) {
+                    r = snprintf(buf, MAX_PATH, "%s/%s", path, dir->d_name) ? 0 : 1;
+                }
+                else {
+                    r = snprintf(buf, MAX_PATH, "%s", dir->d_name) ? 0 : 1;
+                }
+                break;
+            }
+            count+= 1;
+        }
+        closedir(d);
+    }
+    return r;
+}
+
+static int get_dir_count(const char *path)
+{
+    DIR *d = NULL;
+    int count = 0;
+    struct dirent *dir = NULL;
+
+    d = opendir(path);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (dir->d_type != DT_DIR) {
+                continue;
+            }
+            if (strcmp(dir->d_name, ".") == 0) {
+                continue;
+            }
+            if (strcmp(dir->d_name, "..") == 0) {
+                continue;
+            }
+            count+= 1;
+        }
+        closedir(d);
+    }
+    return count;
+}
+
+static int get_file_count(const char *path)
+{
+    DIR *d = NULL;
+    int count = 0;
+    struct dirent *dir = NULL;
+
+    d = opendir(path);
+    if (d) {
+        while ((dir = readdir(d)) != NULL) {
+            if (dir->d_type == DT_DIR) {
+                continue;
+            }
+            if (strcmp(dir->d_name, ".") == 0) {
+                continue;
+            }
+            if (strcmp(dir->d_name, "..") == 0) {
+                continue;
+            }
+            count+= 1;
+        }
+        closedir(d);
+    }
+    return count;
+}
+
+static int get_theme_count(void)
+{
+    int r = 0;
+
+    memset(nds.theme.path, 0, sizeof(nds.theme.path));
+    if (getcwd(nds.theme.path, sizeof(nds.theme.path))) {
+        strcat(nds.theme.path, "/");
+        strcat(nds.theme.path, THEME_PATH);
+        r = get_dir_count(nds.theme.path);
+    }
+    return r;
+}
+
+static int get_pen_count(void)
+{
+    int r = 0;
+
+    memset(nds.pen.path, 0, sizeof(nds.pen.path));
+    if (getcwd(nds.pen.path, sizeof(nds.pen.path))) {
+        strcat(nds.pen.path, "/");
+        strcat(nds.pen.path, PEN_PATH);
+        r = get_file_count(nds.pen.path);
+    }
+    return r;
+}
+
+static int get_overlay_count(void)
+{
+    int r = 0;
+
+    memset(nds.overlay.path, 0, sizeof(nds.overlay.path));
+    if (getcwd(nds.overlay.path, sizeof(nds.overlay.path))) {
+        strcat(nds.overlay.path, "/");
+        strcat(nds.overlay.path, OVERLAY_PATH);
+        r = get_file_count(nds.overlay.path);
+    }
+    return r;
+}
+
+void GFX_Init(void)
+{
+    SDL_Surface *t = NULL;
+
+    MI_SYS_Init();
+    MI_GFX_Open();
+
+    gfx.fd = open("/dev/fb0", O_RDWR);
+    ioctl(gfx.fd, FBIOGET_FSCREENINFO, &gfx.finfo);
+    gfx.fb.phyAddr = gfx.finfo.smem_start;
+    ioctl(gfx.fd, FBIOGET_VSCREENINFO, &gfx.vinfo);
+    gfx.vinfo.yoffset = 0;
+    ioctl(gfx.fd, FBIOPUT_VSCREENINFO, &gfx.vinfo);
+    MI_SYS_MemsetPa(gfx.fb.phyAddr, 0, FB_SIZE);
+    MI_SYS_Mmap(gfx.fb.phyAddr, gfx.finfo.smem_len, &gfx.fb.virAddr, TRUE);
+    memset(&gfx.hw.opt, 0, sizeof(gfx.hw.opt));
+
+    MI_SYS_MMA_Alloc(NULL, TMP_SIZE, &gfx.tmp.phyAddr);
+    MI_SYS_Mmap(gfx.tmp.phyAddr, TMP_SIZE, &gfx.tmp.virAddr, TRUE);
+
+    MI_SYS_MMA_Alloc(NULL, TMP_SIZE, &gfx.overlay.phyAddr);
+    MI_SYS_Mmap(gfx.overlay.phyAddr, TMP_SIZE, &gfx.overlay.virAddr, TRUE);
+
+    cvt = SDL_CreateRGBSurface(SDL_SWSURFACE, FB_W, FB_H, 32, 0, 0, 0, 0);
+    printf("Surface for convert: %p\n", cvt);
+
+    nds.pen.sel = 0;
+    nds.pen.max = get_pen_count();
+    printf("How many pen:%d\n", nds.pen.max);
+
+    nds.theme.sel = 0;
+    nds.theme.max = get_theme_count();
+    printf("How many theme:%d\n", nds.theme.max);
+
+    nds.overlay.sel = nds.overlay.max = get_overlay_count();
+    printf("How many overlay:%d\n", nds.overlay.max);
+
+    getcwd(nds.cfg_path, sizeof(nds.cfg_path));
+    strcat(nds.cfg_path, "/");
+    strcat(nds.cfg_path, CFG_PATH);
+    
+    t = IMG_Load(MENU_BG_FILE);
+    if (t) {
+        nds.menu.bg = SDL_ConvertSurface(t, cvt->format, 0);
+        printf("Menu bg: %p\n", nds.menu.bg);
+        SDL_FreeSurface(t);
+    }
+
+    nds.menu.cursor = IMG_Load(MENU_CURSOR_FILE);
+    printf("Menu cursor: %p\n", nds.menu.cursor);
+
+    TTF_Init();
+    nds.sfont = TTF_OpenFont(FONT_PATH, SFONT_SIZE);
+    nds.bfont = TTF_OpenFont(FONT_PATH, BFONT_SIZE);
+    printf("SFont: %p\n", nds.sfont);
+    printf("BFont: %p\n", nds.bfont);
+}
+
+void GFX_Quit(void)
+{
+    gfx.vinfo.yoffset = 0;
+    ioctl(gfx.fd, FBIOPUT_VSCREENINFO, &gfx.vinfo);
+    close(gfx.fd);
+    gfx.fd = 0;
+
+    MI_SYS_Munmap(gfx.fb.virAddr, TMP_SIZE);
+    MI_SYS_Munmap(gfx.tmp.virAddr, TMP_SIZE);
+    MI_SYS_MMA_Free(gfx.tmp.phyAddr);
+    MI_SYS_Munmap(gfx.overlay.virAddr, TMP_SIZE);
+    MI_SYS_MMA_Free(gfx.overlay.phyAddr);
+    MI_GFX_Close();
+    MI_SYS_Exit();
+}
+
+void GFX_Clear(void)
+{
+    MI_SYS_MemsetPa(gfx.fb.phyAddr, 0, FB_SIZE);
+    MI_SYS_MemsetPa(gfx.tmp.phyAddr, 0, TMP_SIZE);
+}
+
+int draw_pen(const void *pixels, int width, int pitch)
+{
+    int c0 = 0;
+    int c1 = 0;
+    int w = 28;
+    int h = 28;
+    int sub = 0;
+    int sw = 256;
+    int sh = 192;
+    int x0 = 0, y0 = 0;
+    int x1 = 0, y1 = 0;
+    int x = 0, y = 0, is_565 = 0, scale = 1;
+    uint16_t r = 0, g = 0, b = 0;
+    uint32_t *s = hex_pen;
+    uint16_t *d_565 = (uint16_t*)pixels;
+    uint32_t *d_888 = (uint32_t*)pixels;
+
+    if ((pitch / width) == 2) {
+        is_565 = 1;
+    }
+
+    if (width == 512) {
+        sw = 512;
+        sh = 384;
+        scale = 2;
+    }
+
+    x = ((MMiyooEventInfo.mouse.x - MMiyooEventInfo.mouse.minx) * sw) / (MMiyooEventInfo.mouse.maxx - MMiyooEventInfo.mouse.minx);
+    y = ((MMiyooEventInfo.mouse.y - MMiyooEventInfo.mouse.miny) * sh) / (MMiyooEventInfo.mouse.maxy - MMiyooEventInfo.mouse.miny);
+
+    switch (nds.dis_mode) {
+    case NDS_DIS_MODE_VH_T0:
+    case NDS_DIS_MODE_VH_T1:
+    //case NDS_DIS_MODE_S0:
+    //case NDS_DIS_MODE_S1:
+        sub = sh;
+        break;
+    }
+
+    if (nds.pen.pos == 0) {
+        switch (nds.dis_mode) {
+        case NDS_DIS_MODE_V0:
+        case NDS_DIS_MODE_V1:
+        case NDS_DIS_MODE_H0:
+        case NDS_DIS_MODE_H1:
+        case NDS_DIS_MODE_VH_S0:
+        case NDS_DIS_MODE_VH_S1:
+        case NDS_DIS_MODE_VH_C0:
+        case NDS_DIS_MODE_VH_C1:
+        case NDS_DIS_MODE_HH0:
+            sub = sh;
+            break;
+        }
+    }
+    
+    if (nds.pen.img) {
+        w = nds.pen.img->w;
+        h = nds.pen.img->h;
+        s = nds.pen.img->pixels;
+    }
+
+    switch(nds.pen.type) {
+    case PEN_LT:
+        break;
+    case PEN_LB:
+        y-= (h * scale);
+        break;
+    case PEN_RT:
+        x-= (w * scale);
+        break;
+    case PEN_RB:
+        x-= (w * scale);
+        y-= (h * scale);
+        break;
+    }
+
+    asm ("PLD [%0, #128]"::"r" (s));
+    for (c1=0; c1<h; c1++) {
+        asm ("PLD [%0, #128]"::"r" (d_565));
+        asm ("PLD [%0, #128]"::"r" (d_888));
+        for (c0=0; c0<w; c0++) {
+            x0 = x1 = (c0 * scale) + x;
+            y0 = y1 = (c1 * scale) + (y - sub);
+
+            if (scale == 2) {
+                x0+= 1;
+                y0+= 1;
+            }
+            if ((y0 >= 0) && (y0 < sh) && (x0 < sw) && (x0 >= 0)) {
+                if (*s) {
+                    if (is_565) {
+                        r = (*s & 0xf80000) >> 8;
+                        g = (*s & 0x00f800) >> 5;
+                        b = (*s & 0x0000f8) >> 3;
+                        d_565[(y1 * width) + x1] = r | g | b;
+                        if (scale == 2) {
+                            d_565[((y1 + 0) * width) + (x1 + 1)] = r | g | b;
+                            d_565[((y1 + 1) * width) + (x1 + 0)] = r | g | b;
+                            d_565[((y1 + 1) * width) + (x1 + 1)] = r | g | b;
+                        }
+                    }
+                    else {
+                        d_888[(y1 * width) + x1] = *s;
+                        if (scale == 2) {
+                            d_888[((y1 + 0) * width) + (x1 + 1)] = r | g | b;
+                            d_888[((y1 + 1) * width) + (x1 + 0)] = r | g | b;
+                            d_888[((y1 + 1) * width) + (x1 + 1)] = r | g | b;
+                        }
+                    }
+                }
+            }
+            s+= 1;
+        }
+    }
+    return 0;
+}
+
+int GFX_Copy(const void *pixels, SDL_Rect srcrect, SDL_Rect dstrect, int pitch, int alpha, int rotate)
+{
+    int copy_it = 1;
+    MI_U16 u16Fence = 0;
+
+    if (pixels == NULL) {
+        return -1;
+    }
+    
+    if (alpha != 0) {
+        if (nds.alpha.val > NDS_ALPHA_MAX) {
+            nds.alpha.val = 0;
+        }
+
+        if (nds.alpha.val > 0) {
+            float m0 = (float)nds.alpha.val / 10;
+            float m1 = 1.0 - m0;
+            uint32_t *d = gfx.tmp.virAddr;
+            uint32_t r0 = 0, g0 = 0, b0 = 0;
+            uint32_t r1 = 0, g1 = 0, b1 = 0;
+            int x = 0, y = 0, ax = 0, ay = 0, sw = 0, sh = 0;
+            const uint32_t *s0 = gfx.fb.virAddr + (FB_W * gfx.vinfo.yoffset * FB_BPP);
+            const uint16_t *s1_565 = pixels;
+            const uint32_t *s1_888 = pixels;
+            uint32_t col[] = {
+                0x000000, 0xa0a0a0, 0x400000, 0x004000, 0x000040, 0x000000, 0xa0a000, 0x00a0a0
+            };
+            
+            switch (nds.dis_mode) {
+            case NDS_DIS_MODE_VH_T0:
+                sw = 170;
+                sh = 128;
+                break;
+            case NDS_DIS_MODE_VH_T1:
+                sw = srcrect.w;
+                sh = srcrect.h;
+                break;
+            }
+
+            ay = 0;
+            for (y=0; y<sh; y++) {
+                switch (nds.dis_mode) {
+                case NDS_DIS_MODE_VH_T0:
+                    if (y && ((y % 2) == 0)) {
+                        ay+= 1;
+                    }
+                    break;
+                }
+
+                ax = 0;
+                for (x=0; x<sw; x++) {
+                    asm ("PLD [%0, #128]"::"r" (s0));
+                    if ((nds.alpha.border > 0) && ((y == 0) || (y == (sh - 1)) || (x == 0) || (x == (sw - 1)))) {
+                        *d++ = col[nds.alpha.border];
+                    }
+                    else {
+                        switch (nds.dis_mode) {
+                        case NDS_DIS_MODE_VH_T0:
+                            if (x && ((x % 2) == 0)) {
+                                ax+= 1;
+                            }
+                            break;
+                        }
+
+                        if (pitch == 512) {
+                            asm ("PLD [%0, #128]"::"r" (s1_565));
+                            r1 = (s1_565[((y + ay) * srcrect.w) + x + ax] & 0xf800) >> 8;
+                            g1 = (s1_565[((y + ay) * srcrect.w) + x + ax] & 0x07e0) >> 3;
+                            b1 = (s1_565[((y + ay) * srcrect.w) + x + ax] & 0x001f) << 3;
+                        }
+                        else {
+                            asm ("PLD [%0, #128]"::"r" (s1_888));
+                            r1 = (s1_888[((y + ay) * srcrect.w) + x + ax] & 0xff0000) >> 16;
+                            g1 = (s1_888[((y + ay) * srcrect.w) + x + ax] & 0x00ff00) >> 8;
+                            b1 = (s1_888[((y + ay) * srcrect.w) + x + ax] & 0x0000ff) >> 0;
+                        }
+                        
+                        switch (nds.alpha.pos % 4) {
+                        case 0:
+                            r0 = (s0[((sh - y + (FB_H - sh) - 1) * FB_W) + (sw - x - 1)] & 0xff0000) >> 16;
+                            g0 = (s0[((sh - y + (FB_H - sh) - 1) * FB_W) + (sw - x - 1)] & 0x00ff00) >> 8;
+                            b0 = (s0[((sh - y + (FB_H - sh) - 1) * FB_W) + (sw - x - 1)] & 0x0000ff) >> 0;
+                            break;
+                        case 1:
+                            r0 = (s0[((sh - y + (FB_H - sh) - 1) * FB_W) + (sw - x + (FB_W - sw) - 1)] & 0xff0000) >> 16;
+                            g0 = (s0[((sh - y + (FB_H - sh) - 1) * FB_W) + (sw - x + (FB_W - sw) - 1)] & 0x00ff00) >> 8;
+                            b0 = (s0[((sh - y + (FB_H - sh) - 1) * FB_W) + (sw - x + (FB_W - sw) - 1)] & 0x0000ff) >> 0;
+                            break;
+                        case 2:
+                            r0 = (s0[((sh - y - 1) * FB_W) + (sw - x + (FB_W - sw) - 1)] & 0xff0000) >> 16;
+                            g0 = (s0[((sh - y - 1) * FB_W) + (sw - x + (FB_W - sw) - 1)] & 0x00ff00) >> 8;
+                            b0 = (s0[((sh - y - 1) * FB_W) + (sw - x + (FB_W - sw) - 1)] & 0x0000ff) >> 0;
+                            break;
+                        case 3:
+                            r0 = (s0[((sh - y - 1) * FB_W) + (sw - x - 1)] & 0xff0000) >> 16;
+                            g0 = (s0[((sh - y - 1) * FB_W) + (sw - x - 1)] & 0x00ff00) >> 8;
+                            b0 = (s0[((sh - y - 1) * FB_W) + (sw - x - 1)] & 0x0000ff) >> 0;
+                            break;
+                        }
+
+                        r0 = (uint8_t)((r0 * m0) + (r1 * m1));
+                        g0 = (uint8_t)((g0 * m0) + (g1 * m1));
+                        b0 = (uint8_t)((b0 * m0) + (b1 * m1));
+                        *d++ = ((r0 << 16) | (g0 << 8) | b0);
+                    }
+                }
+            }
+            copy_it = 0;
+        }
+       
+        switch (nds.dis_mode) {
+        case NDS_DIS_MODE_VH_T0:
+            dstrect.w = 170;
+            dstrect.h = 128;
+            if (nds.alpha.val > 0) {
+                srcrect.w = dstrect.w;
+                srcrect.h = dstrect.h;
+                pitch = srcrect.w * 4;
+            }
+            break;
+        case NDS_DIS_MODE_VH_T1:
+            dstrect.w = 256;
+            dstrect.h = 192;
+            if (nds.alpha.val > 0) {
+                srcrect.w = dstrect.w;
+                srcrect.h = dstrect.h;
+                pitch = srcrect.w * 4;
+            }
+            break;
+        }
+        
+        switch (nds.alpha.pos % 4) {
+        case 0:
+            dstrect.x = 0;
+            dstrect.y = 480 - dstrect.h;
+            break;
+        case 1:
+            dstrect.x = 640 - dstrect.w;
+            dstrect.y = 480 - dstrect.h;
+            break;
+        case 2:
+            dstrect.x = 640 - dstrect.w;
+            dstrect.y = 0;
+            break;
+        case 3:
+            dstrect.x = 0;
+            dstrect.y = 0;
+            break;
+        }
+    }
+
+    if ((copy_it) && (down_scale)) {
+        do {
+            if (nds.hres_mode != 0) {
+                break;
+            }
+
+            if ((srcrect.w != 256) || (srcrect.h != 192)) {
+                break;
+            }
+
+            asm volatile (
+                "1:  mov r8, %2             ;"
+                "    add r9, %1, %3         ;"
+                "2:  vldmia %0!, {q8-q11}   ;"
+                "    vdup.32 d31, d23[1]    ;"
+                "    vdup.32 d30, d23[0]    ;"
+                "    vdup.32 d29, d22[1]    ;"
+                "    vdup.32 d28, d22[0]    ;"
+                "    vdup.32 d27, d21[1]    ;"
+                "    vdup.32 d26, d21[0]    ;"
+                "    vdup.32 d25, d20[1]    ;"
+                "    vdup.32 d24, d20[0]    ;"
+                "    vdup.32 d23, d19[1]    ;"
+                "    vdup.32 d22, d19[0]    ;"
+                "    vdup.32 d21, d18[1]    ;"
+                "    vdup.32 d20, d18[0]    ;"
+                "    vdup.32 d19, d17[1]    ;"
+                "    vdup.32 d18, d17[0]    ;"
+                "    vdup.32 d17, d16[1]    ;"
+                "    vdup.32 d16, d16[0]    ;"
+                "    vstmia %1!, {q8-q15}   ;"
+                "    vstmia r9!, {q8-q15}   ;"
+                "    subs r8, #1            ;"
+                "    bne 2b                 ;"
+                "    add %1, %1, %3         ;"
+                "    subs %4, #1            ;"
+                "    bne 1b                 ;"
+                :
+                : "r"(pixels), "r"(gfx.tmp.virAddr), "r"(16), "r"(512 * 4), "r"(192)
+                : "r8", "r9", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15", "memory", "cc"
+            );
+
+            copy_it = 0;
+            srcrect.x = 0;
+            srcrect.y = 0;
+            srcrect.w = 512;
+            srcrect.h = 384;
+            pitch = srcrect.w * 4;
+        } while(0);
+    }
+
+    if (copy_it) {
+        neon_memcpy(gfx.tmp.virAddr, pixels, srcrect.h * pitch);
+    }
+    
+    gfx.hw.opt.u32GlobalSrcConstColor = 0;
+    gfx.hw.opt.eRotate = rotate;
+    gfx.hw.opt.eSrcDfbBldOp = E_MI_GFX_DFB_BLD_ONE;
+    gfx.hw.opt.eDstDfbBldOp = 0;
+    gfx.hw.opt.eDFBBlendFlag = 0;
+
+    gfx.hw.src.rt.s32Xpos = srcrect.x;
+    gfx.hw.src.rt.s32Ypos = srcrect.y;
+    gfx.hw.src.rt.u32Width = srcrect.w;
+    gfx.hw.src.rt.u32Height = srcrect.h;
+    gfx.hw.src.surf.u32Width = srcrect.w;
+    gfx.hw.src.surf.u32Height = srcrect.h;
+    gfx.hw.src.surf.u32Stride = pitch;
+    gfx.hw.src.surf.eColorFmt = (pitch / srcrect.w) == 2 ? E_MI_GFX_FMT_RGB565 : E_MI_GFX_FMT_ARGB8888;
+    gfx.hw.src.surf.phyAddr = gfx.tmp.phyAddr;
+    
+    gfx.hw.dst.rt.s32Xpos = 0;
+    gfx.hw.dst.rt.s32Ypos = 0;
+    gfx.hw.dst.rt.u32Width = FB_W;
+    gfx.hw.dst.rt.u32Height = FB_H;
+    gfx.hw.dst.rt.s32Xpos = dstrect.x;
+    gfx.hw.dst.rt.s32Ypos = dstrect.y;
+    gfx.hw.dst.rt.u32Width = dstrect.w;
+    gfx.hw.dst.rt.u32Height = dstrect.h;
+    gfx.hw.dst.surf.u32Width = FB_W;
+    gfx.hw.dst.surf.u32Height = FB_H;
+    gfx.hw.dst.surf.u32Stride = FB_W * FB_BPP;
+    gfx.hw.dst.surf.eColorFmt = E_MI_GFX_FMT_ARGB8888;
+    gfx.hw.dst.surf.phyAddr = gfx.fb.phyAddr + (FB_W * gfx.vinfo.yoffset * FB_BPP);
+
+    MI_SYS_FlushInvCache(gfx.tmp.virAddr, pitch * srcrect.h);
+    MI_GFX_BitBlit(&gfx.hw.src.surf, &gfx.hw.src.rt, &gfx.hw.dst.surf, &gfx.hw.dst.rt, &gfx.hw.opt, &u16Fence);
+    MI_GFX_WaitAllDone(FALSE, u16Fence);
+    
+    if ((nds.menu.enable == 0) && (srcrect.w != 800) && ((srcrect.w == 256) || (srcrect.w == 512)) && (nds.overlay.sel < nds.overlay.max)) {
+        gfx.hw.src.rt.s32Xpos = 0;
+        gfx.hw.src.rt.s32Ypos = 0;
+        gfx.hw.src.rt.u32Width = FB_W;
+        gfx.hw.src.rt.u32Height = FB_H;
+
+        gfx.hw.dst.rt.s32Xpos = 0;
+        gfx.hw.dst.rt.s32Ypos = 0;
+        gfx.hw.dst.rt.u32Width = FB_W;
+        gfx.hw.dst.rt.u32Height = FB_H;
+        gfx.hw.dst.surf.phyAddr = gfx.fb.phyAddr + (FB_W * gfx.vinfo.yoffset * FB_BPP);
+
+        gfx.hw.opt.u32GlobalSrcConstColor = 0xff000000;
+        gfx.hw.opt.eRotate = E_MI_GFX_ROTATE_180;
+        gfx.hw.opt.eSrcDfbBldOp = E_MI_GFX_DFB_BLD_ONE;
+        gfx.hw.opt.eDstDfbBldOp = E_MI_GFX_DFB_BLD_INVSRCALPHA;
+        gfx.hw.opt.eDFBBlendFlag = E_MI_GFX_DFB_BLEND_SRC_PREMULTIPLY | E_MI_GFX_DFB_BLEND_COLORALPHA | E_MI_GFX_DFB_BLEND_ALPHACHANNEL;
+        MI_GFX_BitBlit(&gfx.hw.overlay.surf, &gfx.hw.overlay.rt, &gfx.hw.dst.surf, &gfx.hw.dst.rt, &gfx.hw.opt, &u16Fence);
+        MI_GFX_WaitAllDone(FALSE, u16Fence);
+    }
+    return 0;
+}
+
+void GFX_Flip(void)
+{
+    ioctl(gfx.fd, FBIOPAN_DISPLAY, &gfx.vinfo);
+    gfx.vinfo.yoffset ^= FB_H;
+}
+
+int get_font_width(const char *info, int is_big)
+{
+    int w = 0, h = 0;
+    TTF_Font *f = (is_big == 0) ? nds.sfont : nds.bfont;
+
+    if (f && info) {
+        TTF_SizeUTF8(f, info, &w, &h);
+    }
+    return w;
+}
+
+int get_font_height(const char *info, int is_big)
+{
+    int w = 0, h = 0;
+    TTF_Font *f = (is_big == 0) ? nds.sfont : nds.bfont;
+
+    if (f && info) {
+        TTF_SizeUTF8(f, info, &w, &h);
+    }
+    return h;
+}
+
+int draw_info(SDL_Surface *dst, int is_big, const char *info, int x, int y, uint32_t fgcolor, uint32_t bgcolor)
+{
+    int w = 0, h = 0;
+    SDL_Color fg = {0};
+    SDL_Rect rt = {0, 0, 0, 0};
+    SDL_Surface *t0 = NULL;
+    SDL_Surface *t1 = NULL;
+    SDL_Surface *t2 = NULL;
+    TTF_Font *f = (is_big == 0) ? nds.sfont : nds.bfont;
+    
+    if (f == NULL) {
+        return -1;
+    }
+
+    fg.r = (fgcolor >> 16) & 0xff;
+    fg.g = (fgcolor >> 8) & 0xff;
+    fg.b = (fgcolor >> 0) & 0xff;
+    TTF_SizeUTF8(f, info, &w, &h);
+    t0 = TTF_RenderUTF8_Solid(f, info, fg);
+    if (t0) {
+        if (dst == NULL) {
+            t1 = SDL_CreateRGBSurface(SDL_SWSURFACE, t0->w, t0->h, 32, 0, 0, 0, 0);
+            if (t1) {
+                SDL_FillRect(t1, &t1->clip_rect, bgcolor);
+                SDL_BlitSurface(t0, NULL, t1, NULL);
+
+                t2 = SDL_ConvertSurface(t1, cvt->format, 0);
+                if (t2) {
+                    rt.x = x;
+                    rt.y = y;
+                    rt.w = t2->w;
+                    rt.h = t2->h;
+                    GFX_Copy(t2->pixels, t2->clip_rect, rt, t2->pitch, 0, E_MI_GFX_ROTATE_180);
+                    SDL_FreeSurface(t2);
+                }
+                SDL_FreeSurface(t1);
+            }
+        }
+        else {
+            rt.x = x;
+            rt.y = y;
+            SDL_BlitSurface(t0, NULL, dst, &rt);
+        }
+        SDL_FreeSurface(t0);
+    }
+    return 0;
+}
+
+int reload_pen(void)
+{
+    static int pre_sel = -1;
+
+    char buf[MAX_PATH] = {0};
+    SDL_Surface *t = NULL;
+
+    if (pre_sel != nds.pen.sel) {
+        pre_sel = nds.pen.sel;
+
+        if (nds.pen.img) {
+            SDL_FreeSurface(nds.pen.img);
+            nds.pen.img = NULL;
+        }
+
+        nds.pen.type = PEN_LB;
+        if (get_file_path(nds.pen.path, nds.pen.sel, buf, 1) == 0) {
+            printf("Pen (%s)\n", buf);
+            t = IMG_Load(buf);
+            if (t) {
+                nds.pen.img = SDL_ConvertSurface(t, cvt->format, 0);
+                SDL_FreeSurface(t);
+
+                if (strstr(buf, "_lt")) {
+                    nds.pen.type = PEN_LT;
+                }
+                else if (strstr(buf, "_rt")) {
+                    nds.pen.type = PEN_RT;
+                }
+                else if (strstr(buf, "_rb")) {
+                    nds.pen.type = PEN_RB;
+                }
+                else {
+                    nds.pen.type = PEN_LB;
+                }
+                printf("Pen type %d\n", nds.pen.type);
+            }
+            else {
+                printf("Failed to load pen (%s)\n", buf);
+            }
+        }
+    }
+    return 0;
+}
+
+int reload_bg(void)
+{
+    static int pre_sel = -1;
+    static int pre_mode = -1;
+
+    char buf[MAX_PATH] = {0};
+    SDL_Surface *t = NULL;
+    SDL_Rect srt = {0, 0, FB_W, FB_H};
+    SDL_Rect drt = {0, 0, FB_W, FB_H};
+
+    if (nds.overlay.sel >= nds.overlay.max) {
+        if ((pre_sel != nds.theme.sel) || (pre_mode != nds.dis_mode)) {
+            pre_mode = nds.dis_mode;
+            pre_sel = nds.theme.sel;
+
+            if (nds.theme.img) {
+                SDL_FreeSurface(nds.theme.img);
+                nds.theme.img = NULL;
+            }
+
+            nds.theme.img = SDL_CreateRGBSurface(SDL_SWSURFACE, FB_W, FB_H, 32, 0, 0, 0, 0);
+            if (nds.theme.img) {
+                SDL_FillRect(nds.theme.img, &nds.theme.img->clip_rect, SDL_MapRGB(nds.theme.img->format, 0x00, 0x00, 0x00));
+
+                if (get_dir_path(nds.theme.path, nds.theme.sel, buf) == 0) {
+                    switch (nds.dis_mode) {
+                    case NDS_DIS_MODE_VH_T0:
+                    case NDS_DIS_MODE_VH_T1:
+                        return 0;
+                    case NDS_DIS_MODE_S0:
+                        strcat(buf, "/bg_s0.png");
+                        break;
+                    case NDS_DIS_MODE_S1:
+                        return 0;
+                    case NDS_DIS_MODE_V0:
+                        strcat(buf, "/bg_v0.png");
+                        break;
+                    case NDS_DIS_MODE_V1:
+                        strcat(buf, "/bg_v1.png");
+                        break;
+                    case NDS_DIS_MODE_H0:
+                        strcat(buf, "/bg_h0.png");
+                        break;
+                    case NDS_DIS_MODE_H1:
+                        strcat(buf, "/bg_h1.png");
+                        break;
+                    case NDS_DIS_MODE_VH_S0:
+                        strcat(buf, "/bg_vh_s0.png");
+                        break;
+                    case NDS_DIS_MODE_VH_S1:
+                        strcat(buf, "/bg_vh_s1.png");
+                        break;
+                    case NDS_DIS_MODE_VH_C0:
+                        strcat(buf, "/bg_vh_c0.png");
+                        break;
+                    case NDS_DIS_MODE_VH_C1:
+                        strcat(buf, "/bg_vh_c1.png");
+                        break;
+                    case NDS_DIS_MODE_HH0:
+                        strcat(buf, "/bg_hh0.png");
+                        break;
+                    case NDS_DIS_MODE_HRES0:
+                        strcat(buf, "/bg_hres0.png");
+                        break;
+                    }
+                    
+                    printf("Wallpaper (%s)\n", buf);
+                    t = IMG_Load(buf);
+                    if (t) {
+                        SDL_BlitSurface(t, NULL, nds.theme.img, NULL);
+                        SDL_FreeSurface(t);
+                    }
+                    else {
+                        printf("Failed to load wallpaper (%s)\n", buf);
+                    }
+                    GFX_Copy(nds.theme.img->pixels, srt, drt, nds.theme.img->pitch, 0, E_MI_GFX_ROTATE_180);
+                }
+            }
+        }
+        else {
+            if (nds.theme.img) {
+                GFX_Copy(nds.theme.img->pixels, srt, drt, nds.theme.img->pitch, 0, E_MI_GFX_ROTATE_180);
+            }
+        }
+    }
+    else {
+        t = SDL_CreateRGBSurface(SDL_SWSURFACE, FB_W, FB_H, 32, 0, 0, 0, 0);
+        if (t) {
+            SDL_Rect rt = {0, 0, FB_W, FB_H};
+
+            SDL_FillRect(t, &t->clip_rect, SDL_MapRGB(t->format, 0x00, 0x00, 0x00));
+            GFX_Copy(t->pixels, rt, rt, t->pitch, 0, E_MI_GFX_ROTATE_180);
+            SDL_FreeSurface(t);
+        }
+    }
+    return 0;
+}
+
+int reload_overlay(void)
+{
+    static int pre_sel = -1;
+
+    char buf[MAX_PATH] = {0};
+    SDL_Surface *t = NULL;
+
+    if ((nds.overlay.sel < nds.overlay.max) && (pre_sel != nds.overlay.sel)) {
+        pre_sel = nds.overlay.sel;
+
+        if (nds.overlay.img) {
+            SDL_FreeSurface(nds.overlay.img);
+            nds.overlay.img = NULL;
+        }
+
+        nds.overlay.img = SDL_CreateRGBSurface(SDL_SWSURFACE, FB_W, FB_H, 32, 0, 0, 0, 0);
+        if (nds.overlay.img) {
+            SDL_FillRect(nds.overlay.img, &nds.overlay.img->clip_rect, SDL_MapRGB(nds.overlay.img->format, 0x00, 0x00, 0x00));
+
+            if (get_file_path(nds.overlay.path, nds.overlay.sel, buf, 1) == 0) {
+                printf("Overlay (%s)\n", buf);
+                t = IMG_Load(buf);
+                if (t) {
+                    SDL_BlitSurface(t, NULL, nds.overlay.img, NULL);
+                    SDL_FreeSurface(t);
+
+                    gfx.hw.overlay.surf.phyAddr = gfx.overlay.phyAddr;
+                    gfx.hw.overlay.surf.eColorFmt = E_MI_GFX_FMT_ARGB8888;
+                    gfx.hw.overlay.surf.u32Width = FB_W;
+                    gfx.hw.overlay.surf.u32Height = FB_H;
+                    gfx.hw.overlay.surf.u32Stride = FB_W * FB_BPP;
+                    gfx.hw.overlay.rt.s32Xpos = 0;
+                    gfx.hw.overlay.rt.s32Ypos = 0;
+                    gfx.hw.overlay.rt.u32Width = FB_W;
+                    gfx.hw.overlay.rt.u32Height = FB_H;
+                    neon_memcpy(gfx.overlay.virAddr, nds.overlay.img->pixels, FB_W * FB_H * 4);
+                    MI_SYS_FlushInvCache(gfx.overlay.virAddr, FB_W * FB_H * FB_BPP);
+                }
+                else {
+                    printf("Failed to load overlay (%s)\n", buf);
+                }
+            }
+        }
+    }
+    return 0;
 }
 
 static int MMIYOO_Available(void)
@@ -393,18 +1278,8 @@ int MMIYOO_CreateWindow(_THIS, SDL_Window *window)
 {
     SDL_SetMouseFocus(window);
     MMiyooVideoInfo.window = window;
-    MMiyooEventInfo.mouse.xmax = window->w;
-    MMiyooEventInfo.mouse.ymax = window->h;
-    MMiyooEventInfo.mouse.x = window->w / 2;
-    MMiyooEventInfo.mouse.y = window->h / 2;
     printf("%s, w:%d, h:%d\n", __func__, window->w, window->h);
-
-    printf("%s, fb_flip:%p\n", __func__, fb_flip);
-    printf("%s, fb_idx:%p\n", __func__, &fb_idx);
-    printf("%s, fb_vaddr:%p\n", __func__, fb_vaddr);
-    printf("%s, fb_vaddr[0]:%p\n", __func__, fb_vaddr[0]);
-    printf("%s, fb_vaddr[1]:%p\n", __func__, fb_vaddr[1]);
-    glUpdateBufferSettings(fb_flip, &fb_idx, fb_vaddr);
+    //glUpdateBufferSettings(fb_flip, &fb_idx, fb_vaddr);
     return 0;
 }
 
@@ -469,6 +1344,47 @@ int MMIYOO_VideoInit(_THIS)
 
     SDL_zero(mode);
     mode.format = SDL_PIXELFORMAT_RGB565;
+    mode.w = 640;
+    mode.h = 480;
+    mode.refresh_rate = 60;
+    SDL_AddDisplayMode(&display, &mode);
+
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_ARGB8888;
+    mode.w = 640;
+    mode.h = 480;
+    mode.refresh_rate = 60;
+    SDL_AddDisplayMode(&display, &mode);
+
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_RGB565;
+    mode.w = 800;
+    mode.h = 480;
+    mode.refresh_rate = 60;
+    SDL_AddDisplayMode(&display, &mode);
+
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_ARGB8888;
+    mode.w = 800;
+    mode.h = 480;
+    mode.refresh_rate = 60;
+    SDL_AddDisplayMode(&display, &mode);
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_RGB565;
+    mode.w = 800;
+    mode.h = 600;
+    mode.refresh_rate = 60;
+    SDL_AddDisplayMode(&display, &mode);
+
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_ARGB8888;
+    mode.w = 800;
+    mode.h = 600;
+    mode.refresh_rate = 60;
+    SDL_AddDisplayMode(&display, &mode);
+
+    SDL_zero(mode);
+    mode.format = SDL_PIXELFORMAT_RGB565;
     mode.w = 320;
     mode.h = 240;
     mode.refresh_rate = 60;
@@ -495,37 +1411,10 @@ int MMIYOO_VideoInit(_THIS)
     mode.refresh_rate = 60;
     SDL_AddDisplayMode(&display, &mode);
 
-    SDL_zero(mode);
-    mode.format = SDL_PIXELFORMAT_RGB565;
-    mode.w = 640;
-    mode.h = 480;
-    mode.refresh_rate = 60;
-    SDL_AddDisplayMode(&display, &mode);
-
-    SDL_zero(mode);
-    mode.format = SDL_PIXELFORMAT_ARGB8888;
-    mode.w = 640;
-    mode.h = 480;
-    mode.refresh_rate = 60;
-    SDL_AddDisplayMode(&display, &mode);
-
-    SDL_zero(mode);
-    mode.format = SDL_PIXELFORMAT_RGB565;
-    mode.w = 800;
-    mode.h = 600;
-    mode.refresh_rate = 60;
-    SDL_AddDisplayMode(&display, &mode);
-
-    SDL_zero(mode);
-    mode.format = SDL_PIXELFORMAT_ARGB8888;
-    mode.w = 800;
-    mode.h = 600;
-    mode.refresh_rate = 60;
-    SDL_AddDisplayMode(&display, &mode);
-    
     SDL_AddVideoDisplay(&display, SDL_FALSE);
     
-    fb_init();
+    GFX_Init();
+    read_config();
     MMIYOO_EventInit();
     return 0;
 }
@@ -537,8 +1426,630 @@ static int MMIYOO_SetDisplayMode(_THIS, SDL_VideoDisplay *display, SDL_DisplayMo
 
 void MMIYOO_VideoQuit(_THIS)
 {
-    fb_deinit();
+    write_config();
+    if (cvt) {
+        SDL_FreeSurface(cvt);
+        cvt = NULL;
+    }
+
+    if (nds.pen.img) {
+        SDL_FreeSurface(nds.pen.img);
+        nds.pen.img = NULL;
+    }
+
+    if (nds.theme.img) {
+        SDL_FreeSurface(nds.theme.img);
+        nds.theme.img = NULL;
+    }
+
+    if (nds.overlay.img) {
+        SDL_FreeSurface(nds.overlay.img);
+        nds.overlay.img = NULL;
+    }
+
+    if (nds.menu.bg) {
+        SDL_FreeSurface(nds.menu.bg);
+        nds.menu.bg = NULL;
+    }
+
+    if (nds.menu.cursor) {
+        SDL_FreeSurface(nds.menu.cursor);
+        nds.menu.cursor = NULL;
+    }
+
+    if (nds.sfont) {
+        TTF_CloseFont(nds.sfont);
+        nds.sfont = NULL;
+    }
+    if (nds.bfont) {
+        TTF_CloseFont(nds.bfont);
+        nds.bfont = NULL;
+    }
+    TTF_Quit();
+
+    GFX_Quit();
     MMIYOO_EventDeinit();
+}
+
+static const char *DIS_MODE[] = {
+    "640*480, 170*128",
+    "640*480, 256*192",
+    "512*384",
+    "640*480",
+    "256*192, 256*192",
+    "320*240, 320*240",
+    "256*192, 256*192",
+    "320*240, 320*240",
+    "480*360, 160*120",
+    "384*288, 256*192",
+    "384*288, 256*192",
+    "384*288, 256*192",
+    "427*320, 427*320"
+};
+
+static const char *POS[] = {
+    "TOP-RIGHT", "TOP-LEFT", "BOTTOM-LEFT", "BOTTOM-RIGHT"
+};
+
+static const char *BORDER[] = {
+    "NONE", "WHITE", "RED", "GREEN", "BLUE", "BLACK", "YELLOW", "CYAN"
+};
+
+int handle_menu(int key)
+{
+    static int cur_sel = 0;
+    static uint32_t cur_cpuclock = 0;
+    static uint32_t pre_cpuclock = 0;
+
+    const int SX = 145;
+    const int SY = 90;
+    const int SSX = 380;
+    const int MENU_CPU = 0;
+    const int MENU_OVERLAY = 1;
+    const int MENU_DIS = 2;
+    const int MENU_DIS_ALPHA = 3;
+    const int MENU_DIS_BORDER = 4;
+    const int MENU_DIS_POSITION = 5;
+    const int MENU_ALT = 6;
+    const int MENU_LAST = 6;
+
+    char buf[MAX_PATH] = {0};
+    SDL_Rect rt = {0};
+    int h = get_font_height(" ", 1) + 2;
+    uint32_t sel_col = 0xffff00;
+    uint32_t unsel_col = 0x666600;
+    uint32_t dis_col = 0x666666;
+    uint32_t val_col = 0xff0000;
+    uint32_t col0 = 0, col1 = 0, dis_mode = 0;
+
+    if (pre_cpuclock == 0) {
+        cur_cpuclock = pre_cpuclock = get_cpuclock();
+    }
+    switch (key) {
+    case MYKEY_UP:
+        if (cur_sel > 0) {
+            cur_sel-= 1;
+        }
+        break;
+    case MYKEY_DOWN:
+        if (cur_sel < MENU_LAST) {
+            cur_sel+= 1;
+        }
+        break;
+    case MYKEY_LEFT:
+        switch(cur_sel) {
+        case MENU_CPU:
+            if (cur_cpuclock > nds.mincpu) {
+                cur_cpuclock-= 50;
+            }
+            break;
+        case MENU_OVERLAY:
+            if (nds.overlay.sel > 0) {
+                nds.overlay.sel-= 1;
+            }
+            break;
+        case MENU_DIS:
+            if (nds.hres_mode == 0) {
+                if (nds.dis_mode > 0) {
+                    nds.dis_mode-= 1;
+                }
+            }
+            else {
+                nds.dis_mode = NDS_DIS_MODE_HRES0;
+            }
+            break;
+        case MENU_DIS_ALPHA:
+            if (((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+                if (nds.alpha.val > 0) {
+                    nds.alpha.val-= 1;
+                }
+            }
+            break;
+        case MENU_DIS_BORDER:
+            if ((nds.alpha.val > 0) && ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+                if (nds.alpha.border > 0) {
+                    nds.alpha.border-= 1;
+                }
+            }
+            break;
+        case MENU_DIS_POSITION:
+            if (((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+                if (nds.alpha.pos > 0) {
+                    nds.alpha.pos-= 1;
+                }
+            }
+            break;
+        case MENU_ALT:
+            if (nds.alt_mode > 0) {
+                nds.alt_mode-= 1;
+            }
+            break;
+        }
+        break;
+    case MYKEY_RIGHT:
+        switch(cur_sel) {
+        case MENU_CPU:
+            if (cur_cpuclock < nds.maxcpu) {
+                cur_cpuclock+= 50;
+            }
+            break;
+        case MENU_OVERLAY:
+            if (nds.overlay.sel < nds.overlay.max) {
+                nds.overlay.sel+= 1;
+            }
+            break;
+        case MENU_DIS:
+            if (nds.hres_mode == 0) {
+                if (nds.dis_mode < NDS_DIS_MODE_LAST) {
+                    nds.dis_mode+= 1;
+                }
+            }
+            else {
+                nds.dis_mode = NDS_DIS_MODE_HRES1;
+            }
+            break;
+        case MENU_DIS_ALPHA:
+            if (((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+                if (nds.alpha.val < NDS_ALPHA_MAX) {
+                    nds.alpha.val+= 1;
+                }
+            }
+            break;
+        case MENU_DIS_BORDER:
+            if ((nds.alpha.val > 0) && ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+                if (nds.alpha.border < NDS_BORDER_MAX) {
+                    nds.alpha.border+= 1;
+                }
+            }
+            break;
+        case MENU_DIS_POSITION:
+            if (((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+                if (nds.alpha.pos < 3) {
+                    nds.alpha.pos+= 1;
+                }
+            }
+            break;
+        case MENU_ALT:
+            if (nds.alt_mode < NDS_DIS_MODE_LAST) {
+                nds.alt_mode+= 1;
+            }
+            break;
+        }
+        break;
+    case MYKEY_B:
+        if (cur_cpuclock != pre_cpuclock) {
+            set_cpuclock(cur_cpuclock);
+            pre_cpuclock = cur_cpuclock;
+        }
+        nds.menu.enable = 0;
+        return 0;
+    }
+
+    dis_mode = nds.dis_mode;
+    SDL_BlitSurface(nds.menu.bg, NULL, cvt, NULL);
+
+    if (cur_sel == MENU_CPU) {
+        col0 = sel_col;
+        col1 = val_col;
+    }
+    else {
+        col0 = unsel_col;
+        col1 = unsel_col;
+    }
+    draw_info(cvt, 1, "CPU", SX, SY + (h * MENU_CPU), col0, 0);
+    sprintf(buf, "%dMHz", cur_cpuclock);
+    draw_info(cvt, 1, buf, SSX, SY + (h * MENU_CPU), col1, 0);
+
+    if (cur_sel == MENU_OVERLAY) {
+        col0 = sel_col;
+        col1 = val_col;
+    }
+    else {
+        col0 = unsel_col;
+        col1 = unsel_col;
+    }
+    draw_info(cvt, 1, "Overlay", SX, SY + (h * MENU_OVERLAY), col0, 0);
+    if (nds.overlay.sel < nds.overlay.max) {
+        get_file_path(nds.overlay.path, nds.overlay.sel, buf, 0);
+        reload_overlay();
+    }
+    else {
+        sprintf(buf, "NONE");
+    }
+    draw_info(cvt, 0, buf, SSX, SY + (h * MENU_OVERLAY) + 10, col1, 0);
+
+    if (cur_sel == MENU_DIS) {
+        col0 = sel_col;
+        col1 = val_col;
+    }
+    else {
+        col0 = unsel_col;
+        col1 = unsel_col;
+    }
+    draw_info(cvt, 1, "Display", SX, SY + (h * MENU_DIS), col0, 0);
+    if (nds.hres_mode == 0) {
+        sprintf(buf, "%d: %s", nds.dis_mode, DIS_MODE[nds.dis_mode]);
+    }
+    else {
+        sprintf(buf, "%d: %s", nds.dis_mode, nds.dis_mode == NDS_DIS_MODE_HRES0 ? "512*384" : "640*480");
+    }
+    draw_info(cvt, 0, buf, SSX, SY + (h * MENU_DIS) + 10, col1, 0);
+
+    if ((cur_sel == MENU_DIS_ALPHA) && ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+        col0 = sel_col;
+        col1 = val_col;
+    }
+    else {
+        if ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1)) {
+            col0 = unsel_col;
+            col1 = unsel_col;
+        }
+        else {
+            col0 = dis_col;
+            col1 = dis_col;
+        }
+    }
+    draw_info(cvt, 1, "  Alpha", SX, SY + (h * MENU_DIS_ALPHA), col0, 0);
+    sprintf(buf, "%d", nds.alpha.val);
+    draw_info(cvt, 1, buf, SSX, SY + (h * MENU_DIS_ALPHA), col1, 0);
+    
+    if ((cur_sel == MENU_DIS_BORDER) && (nds.alpha.val > 0) && ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+        col0 = sel_col;
+        col1 = val_col;
+    }
+    else {
+        if ((nds.alpha.val > 0) && ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+            col0 = unsel_col;
+            col1 = unsel_col;
+        }
+        else {
+            col0 = dis_col;
+            col1 = dis_col;
+        }
+    }
+    draw_info(cvt, 1, "  Border", SX, SY + (h * MENU_DIS_BORDER), col0, 0);
+    sprintf(buf, "%s", BORDER[nds.alpha.border]);
+    draw_info(cvt, 1, buf, SSX, SY + (h * MENU_DIS_BORDER), col1, 0);
+    
+    if ((cur_sel == MENU_DIS_POSITION) && ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1))) {
+        col0 = sel_col;
+        col1 = val_col;
+    }
+    else {
+        if ((nds.dis_mode == NDS_DIS_MODE_VH_T0) || (nds.dis_mode == NDS_DIS_MODE_VH_T1)) {
+            col0 = unsel_col;
+            col1 = unsel_col;
+        }
+        else {
+            col0 = dis_col;
+            col1 = dis_col;
+        }
+    }
+    draw_info(cvt, 1, "  Position", SX, SY + (h * MENU_DIS_POSITION), col0, 0);
+    sprintf(buf, "%s", POS[nds.alpha.pos]);
+    draw_info(cvt, 1, buf, SSX, SY + (h * MENU_DIS_POSITION), col1, 0);
+    
+    if (cur_sel == MENU_ALT) {
+        col0 = sel_col;
+        col1 = val_col;
+        dis_mode = nds.alt_mode;
+    }
+    else {
+        col0 = unsel_col;
+        col1 = unsel_col;
+    }
+    draw_info(cvt, 1, "ALT DISPLAY", SX, SY + (h * MENU_ALT), col0, 0);
+    sprintf(buf, "%d: %s", nds.alt_mode, DIS_MODE[nds.alt_mode]);
+    draw_info(cvt, 0, buf, SSX, SY + (h * MENU_ALT) + 10, col1, 0);
+
+    if ((cur_sel == MENU_OVERLAY) && (nds.overlay.sel < nds.overlay.max) && (nds.overlay.img)) {
+        rt.x = 450;
+        rt.y = 360;
+        rt.w = 128;
+        rt.h = 96;
+        SDL_SoftStretch(nds.overlay.img, NULL, cvt, &rt);
+    }
+    else {
+        switch (dis_mode) {
+        case NDS_DIS_MODE_VH_T0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+           
+            rt.w = 34;
+            rt.h = 26;
+            switch (nds.alpha.pos) {
+            case 0:
+                rt.x = (450 + 128) - rt.w;
+                rt.y = 360;
+                break;
+            case 1:
+                rt.x = 450;
+                rt.y = 360;
+                break;
+            case 2:
+                rt.x = 450;
+                rt.y = (360 + 96) - rt.h;
+                break;
+            case 3:
+                rt.x = (450 + 128) - rt.w;
+                rt.y = (360 + 96) - rt.h;
+                break;
+            }
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, (30 * nds.alpha.val)));
+            break;
+        case NDS_DIS_MODE_VH_T1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+           
+            rt.w = 51;
+            rt.h = 38;
+            switch (nds.alpha.pos) {
+            case 0:
+                rt.x = (450 + 128) - rt.w;
+                rt.y = 360;
+                break;
+            case 1:
+                rt.x = 450;
+                rt.y = 360;
+                break;
+            case 2:
+                rt.x = 450;
+                rt.y = (360 + 96) - rt.h;
+                break;
+            case 3:
+                rt.x = (450 + 128) - rt.w;
+                rt.y = (360 + 96) - rt.h;
+                break;
+            }
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, (30 * nds.alpha.val)));
+            break;
+        case NDS_DIS_MODE_S0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 102;
+            rt.h = 76;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            break;
+        case NDS_DIS_MODE_S1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            break;
+        case NDS_DIS_MODE_V0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + ((96 - (rt.h * 2)) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + ((96 - (rt.h * 2)) / 2) + rt.h;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_V1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 64;
+            rt.h = 48;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + ((96 - (rt.h * 2)) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 64;
+            rt.h = 48;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + ((96 - (rt.h * 2)) / 2) + rt.h;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_H0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + ((128 - (rt.w * 2)) / 2);
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + ((128 - (rt.w * 2)) / 2) + rt.w;
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_H1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 64;
+            rt.h = 48;
+            rt.x = 450 + ((128 - (rt.w * 2)) / 2);
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 64;
+            rt.h = 48;
+            rt.x = 450 + ((128 - (rt.w * 2)) / 2) + rt.w;
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_VH_S0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 96;
+            rt.h = 72;
+            rt.x = 450;
+            rt.y = 360;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 32;
+            rt.h = 24;
+            rt.x = 450 + (128 - rt.w);
+            rt.y = 360 + (96 - rt.h);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_VH_S1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 77;
+            rt.h = 58;
+            rt.x = 450;
+            rt.y = 360;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + (128 - rt.w);
+            rt.y = 360 + (96 - rt.h);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_VH_C0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 77;
+            rt.h = 58;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + (96 - rt.h);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_VH_C1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 77;
+            rt.h = 58;
+            rt.x = 450;
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 51;
+            rt.h = 38;
+            rt.x = 450 + (128 - rt.w);
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_HH0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 64;
+            rt.h = 85;
+            rt.x = 450;
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            
+            rt.w = 64;
+            rt.h = 85;
+            rt.x = 450 + (128 - rt.w);
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x00, 0x80));
+            break;
+        case NDS_DIS_MODE_HRES0:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x00, 0x80, 0x00));
+            
+            rt.w = 102;
+            rt.h = 76;
+            rt.x = 450 + ((128 - rt.w) / 2);
+            rt.y = 360 + ((96 - rt.h) / 2);
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            break;
+        case NDS_DIS_MODE_HRES1:
+            rt.x = 450;
+            rt.y = 360;
+            rt.w = 128;
+            rt.h = 96;
+            SDL_FillRect(cvt, &rt, SDL_MapRGB(cvt->format, 0x80, 0x00, 0x00));
+            break;
+        }
+    }
+
+    rt.x = SX - 57;
+    rt.y = SY + (h * cur_sel) - 7;
+    SDL_BlitSurface(nds.menu.cursor, NULL, cvt, &rt);
+
+    GFX_Copy(cvt->pixels, cvt->clip_rect, cvt->clip_rect, cvt->pitch, 0, E_MI_GFX_ROTATE_180);
+    GFX_Flip();
+    return 0;
 }
 
 #endif

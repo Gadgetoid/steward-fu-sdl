@@ -36,14 +36,12 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <time.h>
-#include <json-c/json.h>
 
 #include "../../events/SDL_events_c.h"
 #include "../SDL_sysvideo.h"
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
 
-#include "SDL_image.h"
 #include "SDL_version.h"
 #include "SDL_syswm.h"
 #include "SDL_loadso.h"

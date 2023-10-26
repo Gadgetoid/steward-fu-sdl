@@ -230,7 +230,7 @@ static void MMIYOO_JoystickUpdate(SDL_Joystick *joystick)
     changed = previous_input ^ buttons;
     previous_input = buttons;
 
-    for(i = 0; i <= 15; i++) {
+    for(i = 0; i < 15; i++) {
         bit = 1 << i;
         if(changed & bit) {
             SDL_PrivateJoystickButton(joystick, i, (buttons & bit) ? SDL_PRESSED : SDL_RELEASED);

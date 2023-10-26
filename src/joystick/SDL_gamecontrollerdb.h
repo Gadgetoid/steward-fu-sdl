@@ -898,6 +898,9 @@ static const char *s_ControllerMappings [] = {
 #if defined(SDL_JOYSTICK_PSP)
     "505350206275696c74696e206a6f7970,PSP builtin joypad,y:b0,b:b1,a:b2,x:b3,leftshoulder:b4,rightshoulder:b5,dpdown:b6,dpleft:b7,dpup:b8,dpright:b9,back:b10,start:b11,leftx:a0,lefty:a1,rightx:a2,righty:a3,",
 #endif
+#if defined(SDL_JOYSTICK_MMIYOO)
+    "4d4d69796f6f204a6f79737469636b00,MMiyoo Joystick,dpup:b0,dpdown:b1,dpleft:b2,dpright:b3,a:b4,b:b5,x:b6,y:b7,leftshoulder:b8,lefttrigger:b9,rightshoulder:b10,righttrigger:b11,back:b12,start:b13,guide:b14,",
+#endif
     "hidapi,*,a:b0,b:b1,back:b4,dpdown:b12,dpleft:b13,dpright:b14,dpup:b11,guide:b5,leftshoulder:b9,leftstick:b7,lefttrigger:a4,leftx:a0,lefty:a1,rightshoulder:b10,rightstick:b8,righttrigger:a5,rightx:a2,righty:a3,start:b6,x:b2,y:b3,",
     NULL
 };

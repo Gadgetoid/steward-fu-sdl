@@ -1,11 +1,10 @@
 #!/bin/bash
 export MOD=mmiyoo
-export CROSS=/opt/mmiyoo/bin/arm-linux-gnueabihf-
-export CC=${CROSS}gcc
-export AR=${CROSS}ar
-export AS=${CROSS}as
-export LD=${CROSS}ld
-export CXX=${CROSS}g++
+export CC=${CROSS_COMPILE}gcc
+export AR=${CROSS_COMPILE}ar
+export AS=${CROSS_COMPILE}as
+export LD=${CROSS_COMPILE}ld
+export CXX=${CROSS_COMPILE}g++
 export HOST=arm-linux
 
 echo "Building SDL2 for Miyoo Mini / Miyoo Mini Plus"

@@ -32,9 +32,11 @@ export HOST=arm-linux
     --disable-oss \
     --disable-dummyaudio \
     --disable-video-dummy \
-    --host=${HOST}
+    --host=${HOST} \
+    --exec-prefix="/root/workspace/libSDL2-miyoo-mini-plus" \
+    --prefix="/root/workspace/libSDL2-miyoo-mini-plus"
 
 make -j4 V=99
 
 mkdir install
-make install exec_prefix=`pwd`/install
+make install exec_prefix=`pwd`/install prefix=`pwd`/install

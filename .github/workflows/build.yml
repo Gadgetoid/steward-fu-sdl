@@ -22,4 +22,9 @@ jobs:
       shell: bash
       run: |
         source /root/.bashrc
-        ./run.sh config
+        ./ci/build.sh
+    - name: Store build output as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: libSDL2-miyoo-mini-plus
+        path: install/

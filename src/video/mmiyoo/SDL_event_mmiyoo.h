@@ -42,9 +42,7 @@
 #define MYKEY_SELECT        12
 #define MYKEY_START         13
 #define MYKEY_MENU          14
-#define MYKEY_QSAVE         15
-#define MYKEY_QLOAD         16
-#define MYKEY_FF            17
+
 #define MYKEY_EXIT          18
 #define MYKEY_POWER         19
 #define MYKEY_VOLUP         20

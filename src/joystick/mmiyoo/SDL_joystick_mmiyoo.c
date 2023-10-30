@@ -73,6 +73,24 @@ static int event_fd = -1;
 uint32_t current_input = 0;
 uint32_t previous_input = 0;
 
+// left, right, jump, down, turbo, powerup, start, cancel
+SDL_KeyCode SMW_Input[] = {SDLK_UP, 
+                        SDLK_DOWN,
+                        SDLK_LEFT,
+                        SDLK_RIGHT,
+                        SDLK_RCTRL,  // MYKEY_B = Turbo
+                        SDLK_RSHIFT, // MYKEY_X = Powerup
+                        SDLK_a,
+                        SDLK_b,
+                        SDLK_1,
+                        SDLK_2,
+                        SDLK_3,
+                        SDLK_4,
+                        SDLK_ESCAPE,  // MYKEY_SELECT= cancel
+                        SDLK_RETURN, // MYKEY_START = startl
+                        SDLK_ESCAPE,
+                        };
+
 int JoystickUpdate(void *data)
 {
     uint32_t bit = 0;
@@ -230,10 +248,14 @@ static void MMIYOO_JoystickUpdate(SDL_Joystick *joystick)
     changed = previous_input ^ buttons;
     previous_input = buttons;
 
-    for(i = 0; i < 15; i++) {
+    for(i = 0; i < sizeof(SMW_Input) / sizeof(SDL_KeyCode); i++) {
         bit = 1 << i;
         if(changed & bit) {
-            SDL_PrivateJoystickButton(joystick, i, (buttons & bit) ? SDL_PRESSED : SDL_RELEASED);
+            //SDL_PrivateJoystickButton(joystick, i, (buttons & bit) ? SDL_PRESSED : SDL_RELEASED);
+            SDL_Event evt = {};
+            evt.key.keysym.sym = SMW_Input[i];
+            evt.type = (buttons & bit) ? SDL_KEYDOWN : SDL_KEYUP;
+            SDL_PushEvent(&evt);
         }
     }
 }

@@ -129,17 +129,59 @@ static int MMIYOO_OpenDevice(_THIS, void *handle, const char *devname, int iscap
     return 0;
 }
 
+static void MMIYOO_WaitDevice(_THIS)
+{
+    const MI_U32 needed = this->spec.samples;
+    MI_AO_ChnState_t aoState;
+    while(SDL_AtomicGet(&this->enabled)) {
+        const MI_U32 available = aoState.u32ChnFreeNum;
+        MI_AO_QueryChnStat(AoDevId, AoChn, &aoState);
+        // printf("%s, Needed: %u, Available: %u, Busy: %u\n", __func__, needed, available, aoState.u32ChnBusyNum);
+        if(available < needed) {
+            const MI_U32 delay = ((needed - available) * 1000) / this->spec.freq;
+            SDL_Delay(SDL_max(delay, 10));
+            printf("%s, Not enough audio left in channel \n", __func__);
+        }
+        else {
+            break;
+        }
+    }
+}
+
+//MI_AO_ClearChnBuf(AoDevId, AoChn);  // clear the buffer if we hit something stupid
+
 static void MMIYOO_PlayDevice(_THIS)
 {
 #if defined(MMIYOO)
     MI_AUDIO_Frame_t aoTestFrame;
+    float delay_adjustment = 6.8;
+    MI_S32 s32RetSendStatus = 0;
 
     aoTestFrame.eBitwidth = stGetAttr.eBitwidth;
     aoTestFrame.eSoundmode = stGetAttr.eSoundmode;
     aoTestFrame.u32Len = this->hidden->mixlen;
     aoTestFrame.apVirAddr[0] = this->hidden->mixbuf;
     aoTestFrame.apVirAddr[1] = NULL;
-    MI_AO_SendFrame(AoDevId, AoChn, &aoTestFrame, 1);
+    do {
+        MI_AO_ChnState_t aoState;
+        int buffer_diff;
+        float adjustment_factor;
+        int scaling_factor;
+        MI_AO_QueryChnStat(AoDevId, AoChn, &aoState); // query the size of the buffer
+        scaling_factor = 1; // scale our influence on the delay
+        buffer_diff = aoState.u32ChnBusyNum - this->hidden->mixlen * 2;
+        adjustment_factor = (float) abs(buffer_diff) / this->hidden->mixlen * 2 * scaling_factor;
+
+        if (buffer_diff < 0) {
+            delay_adjustment += adjustment_factor;
+        } else {
+            delay_adjustment -= adjustment_factor;
+        }
+
+        usleep(((stSetAttr.u32PtNumPerFrm * 1000) / stSetAttr.eSamplerate - delay_adjustment) * 1000);
+        s32RetSendStatus = MI_AO_SendFrame(AoDevId, AoChn, &aoTestFrame, 1);
+    }
+    while(s32RetSendStatus == MI_AO_ERR_NOBUF);
 #endif
 }
 
@@ -152,6 +194,7 @@ static int MMIYOO_Init(SDL_AudioDriverImpl *impl)
 {
     impl->OpenDevice = MMIYOO_OpenDevice;
     impl->PlayDevice = MMIYOO_PlayDevice;
+    impl->WaitDevice = MMIYOO_WaitDevice;
     impl->GetDeviceBuf = MMIYOO_GetDeviceBuf;
     impl->CloseDevice = MMIYOO_CloseDevice;
     impl->OnlyHasDefaultOutputDevice = 1;
@@ -161,4 +204,3 @@ static int MMIYOO_Init(SDL_AudioDriverImpl *impl)
 AudioBootStrap MMIYOOAUDIO_bootstrap = {"MMIYOO", "MMIYOO AUDIO DRIVER", MMIYOO_Init, 0};
 
 #endif
-
